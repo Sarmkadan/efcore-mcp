@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EfCoreMcp.Core/EfCoreMcp.Core.csproj" />
+    <Project Path="src/EfCoreMcp/EfCoreMcp.csproj" />
+  </Folder>
+</Solution>
