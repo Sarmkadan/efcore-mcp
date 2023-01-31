@@ -9,7 +9,20 @@
     <RootNamespace>EfCoreMcp</RootNamespace>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>efcore-mcp</ToolCommandName>
+    <PackageId>EfCoreMcp</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Vladyslav Zaiets</Authors>
+    <Company>Vladyslav Zaiets</Company>
+    <Description>MCP server that exposes EF Core model introspection, guarded read-only queries and migration diffing over stdio.</Description>
+    <PackageTags>mcp;efcore;entity-framework;dotnet;database</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Sarmkadan/efcore-mcp</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Sarmkadan/efcore-mcp</PackageProjectUrl>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="2.0.0-preview.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.*" />
