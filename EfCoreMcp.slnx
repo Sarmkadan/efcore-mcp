@@ -3,4 +3,7 @@
     <Project Path="src/EfCoreMcp.Core/EfCoreMcp.Core.csproj" />
     <Project Path="src/EfCoreMcp/EfCoreMcp.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EfCoreMcp.Tests/EfCoreMcp.Tests.csproj" />
+  </Folder>
 </Solution>

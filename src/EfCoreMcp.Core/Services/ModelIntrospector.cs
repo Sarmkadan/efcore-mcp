@@ -1,6 +1,7 @@
 using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace EfCoreMcp.Core.Services;
@@ -10,7 +11,7 @@ public sealed class ModelIntrospector(IDbContextProvider contextProvider) : IMod
     public ModelDescriptor DescribeModel()
     {
         var ctx = contextProvider.GetContext();
-        var entities = ctx.Model.GetEntityTypes()
+        var entities = DesignTimeModel(ctx).GetEntityTypes()
             .Select(Describe)
             .OrderBy(e => e.Name, StringComparer.Ordinal)
             .ToList();
@@ -27,14 +28,17 @@ public sealed class ModelIntrospector(IDbContextProvider contextProvider) : IMod
     }
 
     public IReadOnlyList<string> ListEntityNames() =>
-        contextProvider.GetContext().Model.GetEntityTypes()
+        DesignTimeModel(contextProvider.GetContext()).GetEntityTypes()
             .Select(e => e.ShortName())
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
 
+    private static IModel DesignTimeModel(DbContext ctx) =>
+        ctx.GetService<IDesignTimeModel>().Model;
+
     internal IEntityType? FindEntityType(string entityName)
     {
-        var model = contextProvider.GetContext().Model;
+        var model = DesignTimeModel(contextProvider.GetContext());
         return model.GetEntityTypes().FirstOrDefault(e =>
             string.Equals(e.Name, entityName, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(e.ShortName(), entityName, StringComparison.OrdinalIgnoreCase) ||

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "efcore": {
+      "command": "efcore-mcp",
+      "args": [
+        "--assembly", "/path/to/bin/Debug/net10.0/MyApp.dll",
+        "--context", "AppDbContext",
+        "--connection", "Data Source=app.db",
+        "--provider", "sqlite"
+      ]
+    }
+  }
+}
