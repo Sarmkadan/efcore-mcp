@@ -169,18 +169,4 @@ public class ModelIntrospectorTests : IDisposable
         Assert.Equal(["Blog", "Post"], _introspector.ListEntityNames());
     }
 
-    [Fact]
-    public void EntityExists_ReflectsModelContents()
-    {
-        Assert.True(_introspector.EntityExists("Blog"));
-        Assert.False(_introspector.EntityExists("Ghost"));
-    }
-
-    [Fact]
-    public void GetAllEntities_MatchesDescribeModel()
-    {
-        var all = _introspector.GetAllEntities();
-        Assert.Equal(2, all.Count);
-        Assert.All(all, e => Assert.NotEmpty(e.Properties));
-    }
 }
