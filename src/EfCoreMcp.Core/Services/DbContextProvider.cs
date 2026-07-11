@@ -45,13 +45,20 @@ public sealed class DbContextProvider(ContextConnectionOptions options) : IDbCon
         var assembly = LoadAssembly(options.AssemblyPath);
         var contextType = ResolveContextType(assembly);
         var factory = FindDesignTimeFactory(assembly, contextType);
+        DbContext context;
         if (factory is not null)
-            return factory();
-        var ctor = contextType.GetConstructor(Type.EmptyTypes);
-        if (ctor is not null)
-            return (DbContext)ctor.Invoke(null);
-        throw new InvalidOperationException(
-            $"Cannot instantiate '{contextType.FullName}': no IDesignTimeDbContextFactory found and no parameterless constructor.");
+            context = factory();
+        else
+        {
+            var ctor = contextType.GetConstructor(Type.EmptyTypes);
+            context = ctor is not null
+                ? (DbContext)ctor.Invoke(null)
+                : throw new InvalidOperationException(
+                    $"Cannot instantiate '{contextType.FullName}': no IDesignTimeDbContextFactory found and no parameterless constructor.");
+        }
+        if (options.ConnectionString is { Length: > 0 } connectionString)
+            context.Database.SetConnectionString(connectionString);
+        return context;
     }
 
     private static Assembly LoadAssembly(string path)
