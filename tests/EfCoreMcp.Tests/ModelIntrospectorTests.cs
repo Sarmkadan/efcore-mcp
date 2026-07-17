@@ -169,4 +169,24 @@ public class ModelIntrospectorTests : IDisposable
         Assert.Equal(["Blog", "Post"], _introspector.ListEntityNames());
     }
 
+    [Fact]
+    public void EntityNotFoundMessage_SuggestsCloseMatch()
+    {
+        var message = _introspector.EntityNotFoundMessage("Blug");
+        Assert.Contains("Did you mean: Blog", message);
+    }
+
+    [Fact]
+    public void EntityNotFoundMessage_SuggestsSubstringMatch()
+    {
+        var message = _introspector.EntityNotFoundMessage("BlogPost");
+        Assert.Contains("Did you mean:", message);
+    }
+
+    [Fact]
+    public void EntityNotFoundMessage_ListsAllEntitiesWhenNothingIsClose()
+    {
+        var message = _introspector.EntityNotFoundMessage("Zzzzzzz");
+        Assert.Contains("Available entities: Blog, Post", message);
+    }
 }

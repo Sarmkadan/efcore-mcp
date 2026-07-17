@@ -21,7 +21,7 @@ public sealed class ModelTools(IModelIntrospector introspector, ISchemaExplainer
     public EntityDescriptor DescribeEntity(
         [Description("Entity name, e.g. 'Order' or 'MyApp.Domain.Order' or table name")] string entityName) =>
         introspector.DescribeEntity(entityName)
-            ?? throw new InvalidOperationException($"Entity '{entityName}' not found in the model.");
+            ?? throw new InvalidOperationException(introspector.EntityNotFoundMessage(entityName));
 
     [McpServerTool(Name = "explain_schema"), Description("Render a human-readable markdown explanation of the whole model.")]
     public string ExplainSchema() => explainer.ExplainModel();

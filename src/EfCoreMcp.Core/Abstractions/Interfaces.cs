@@ -14,6 +14,7 @@ public interface IModelIntrospector
     ModelDescriptor DescribeModel();
     EntityDescriptor? DescribeEntity(string entityName);
     IReadOnlyList<string> ListEntityNames();
+    string EntityNotFoundMessage(string entityName);
 }
 
 public interface ISqlQueryExecutor
@@ -31,6 +32,18 @@ public interface IMigrationInspector
 {
     Task<MigrationStatus> GetStatusAsync(CancellationToken ct = default);
     ModelDiff DiffAgainstSnapshot();
+}
+
+public interface IModelAnalyzer
+{
+    ModelValidationReport ValidateModel();
+    IReadOnlyList<IndexSuggestion> SuggestIndexes();
+}
+
+public interface IRelationshipAnalyzer
+{
+    RelationshipPath ExplainRelationship(string fromEntity, string toEntity);
+    DependencyOrder GetDependencyOrder();
 }
 
 public interface ISchemaExplainer

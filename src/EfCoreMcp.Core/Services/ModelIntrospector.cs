@@ -45,6 +45,38 @@ public sealed class ModelIntrospector(IDbContextProvider contextProvider) : IMod
             string.Equals(e.GetTableName(), entityName, StringComparison.OrdinalIgnoreCase));
     }
 
+    public string EntityNotFoundMessage(string entityName)
+    {
+        var names = ListEntityNames();
+        var close = names
+            .Where(n =>
+                n.Contains(entityName, StringComparison.OrdinalIgnoreCase) ||
+                entityName.Contains(n, StringComparison.OrdinalIgnoreCase) ||
+                Levenshtein(n.ToLowerInvariant(), entityName.ToLowerInvariant()) <= 2)
+            .Take(3)
+            .ToList();
+        var hint = close.Count > 0
+            ? $" Did you mean: {string.Join(", ", close)}?"
+            : $" Available entities: {string.Join(", ", names)}.";
+        return $"Entity '{entityName}' not found in the model.{hint}";
+    }
+
+    private static int Levenshtein(string a, string b)
+    {
+        if (Math.Abs(a.Length - b.Length) > 2)
+            return int.MaxValue;
+        var prev = Enumerable.Range(0, b.Length + 1).ToArray();
+        var curr = new int[b.Length + 1];
+        for (var i = 1; i <= a.Length; i++)
+        {
+            curr[0] = i;
+            for (var j = 1; j <= b.Length; j++)
+                curr[j] = Math.Min(Math.Min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+            (prev, curr) = (curr, prev);
+        }
+        return prev[b.Length];
+    }
+
     private static EntityDescriptor Describe(IEntityType entity)
     {
         var pk = entity.FindPrimaryKey();
@@ -73,6 +105,8 @@ public sealed class ModelIntrospector(IDbContextProvider contextProvider) : IMod
         property.IsForeignKey(),
         property.IsShadowProperty(),
         property.GetMaxLength(),
+        property.GetPrecision(),
+        property.GetScale(),
         property.GetDefaultValueSql(),
         property.ValueGenerated.ToString(),
         property.IsConcurrencyToken);

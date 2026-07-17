@@ -18,7 +18,9 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
     {
         var entityType = ResolveEntityType(request.EntityName);
         if (request.OrderBy is { } orderBy && entityType.FindProperty(orderBy) is null)
-            throw new InvalidOperationException($"Property '{orderBy}' not found on '{entityType.ShortName()}'.");
+            throw new InvalidOperationException(
+                $"Property '{orderBy}' not found on '{entityType.ShortName()}'. " +
+                $"Available properties: {string.Join(", ", entityType.GetProperties().Select(p => p.Name))}.");
         var ctx = contextProvider.GetContext();
         var take = Math.Clamp(request.Take, 1, 1000);
         var sw = Stopwatch.StartNew();
@@ -52,7 +54,7 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
     {
         if (introspector is ModelIntrospector concrete && concrete.FindEntityType(entityName) is { } found)
             return found;
-        throw new InvalidOperationException($"Entity '{entityName}' not found in the model.");
+        throw new InvalidOperationException(introspector.EntityNotFoundMessage(entityName));
     }
 
     private static async Task<List<object>> FetchAsync<T>(

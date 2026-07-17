@@ -22,7 +22,7 @@ public sealed class SchemaExplainer(IModelIntrospector introspector) : ISchemaEx
     public string ExplainEntity(string entityName)
     {
         var entity = introspector.DescribeEntity(entityName)
-            ?? throw new InvalidOperationException($"Entity '{entityName}' not found in the model.");
+            ?? throw new InvalidOperationException(introspector.EntityNotFoundMessage(entityName));
         var sb = new StringBuilder();
         AppendEntity(sb, entity, headerLevel: 1);
         return sb.ToString();
@@ -91,6 +91,7 @@ public sealed class SchemaExplainer(IModelIntrospector introspector) : ISchemaEx
         if (p.IsShadow) yield return "shadow";
         if (p.IsConcurrencyToken) yield return "concurrency token";
         if (p.MaxLength is { } len) yield return $"max {len}";
+        if (p.Precision is { } precision) yield return $"precision {precision}{(p.Scale is { } scale ? $",{scale}" : "")}";
         if (p.ValueGenerated != "Never") yield return $"generated: {p.ValueGenerated}";
         if (p.DefaultValueSql is { } def) yield return $"default: {def}";
     }

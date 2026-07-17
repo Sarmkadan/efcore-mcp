@@ -29,6 +29,8 @@ public sealed record PropertyDescriptor(
     bool IsForeignKey,
     bool IsShadow,
     int? MaxLength,
+    int? Precision,
+    int? Scale,
     string? DefaultValueSql,
     string ValueGenerated,
     bool IsConcurrencyToken);
