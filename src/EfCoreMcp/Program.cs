@@ -16,6 +16,8 @@ builder.Services.AddSingleton<ISqlQueryExecutor, SqlQueryExecutor>();
 builder.Services.AddSingleton<IEntityQueryExecutor, EntityQueryExecutor>();
 builder.Services.AddSingleton<IMigrationInspector, MigrationInspector>();
 builder.Services.AddSingleton<ISchemaExplainer, SchemaExplainer>();
+builder.Services.AddSingleton<IModelAnalyzer, ModelAnalyzer>();
+builder.Services.AddSingleton<IRelationshipAnalyzer, RelationshipAnalyzer>();
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
