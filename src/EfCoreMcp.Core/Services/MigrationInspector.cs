@@ -11,6 +11,12 @@ namespace EfCoreMcp.Core.Services;
 
 public sealed class MigrationInspector(IDbContextProvider contextProvider) : IMigrationInspector
 {
+    /// <summary>
+    /// Gets the current migration status including applied migrations, pending migrations, and whether the model has drifted from the last snapshot.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A <see cref="MigrationStatus"/> containing applied migrations, pending migrations, and model drift status.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if the context provider returns null.</exception>
     public async Task<MigrationStatus> GetStatusAsync(CancellationToken ct = default)
     {
         var ctx = contextProvider.GetContext();
@@ -19,6 +25,11 @@ public sealed class MigrationInspector(IDbContextProvider contextProvider) : IMi
         return new MigrationStatus(applied, pending, DiffAgainstSnapshot().HasDifferences);
     }
 
+    /// <summary>
+    /// Diffs the current model against the last migration snapshot and returns the list of pending operations
+    /// that a new migration would contain.
+    /// </summary>
+    /// <returns>A <see cref="ModelDiff"/> containing whether differences exist and the list of operations.</returns>
     public ModelDiff DiffAgainstSnapshot()
     {
         var ctx = contextProvider.GetContext();
@@ -63,13 +74,30 @@ public sealed class MigrationInspector(IDbContextProvider contextProvider) : IMi
             DropPrimaryKeyOperation o => (o.Table, o.Schema, o.Name),
             _ => (null, null, null)
         };
+
+        var operationType = operation.GetType().Name.Replace("Operation", "");
+        var isDestructive = IsDestructiveOperation(operation);
         return new ModelDiffOperation(
-            operation.GetType().Name.Replace("Operation", ""),
+            operationType,
             table,
             schema,
             name,
-            FormatDescription(operation, table, name));
+            FormatDescription(operation, table, name),
+            isDestructive);
     }
+
+    private static bool IsDestructiveOperation(MigrationOperation operation) => operation switch
+    {
+        DropTableOperation => true,
+        DropColumnOperation => true,
+        DropIndexOperation => true,
+        DropForeignKeyOperation => true,
+        DropPrimaryKeyOperation => true,
+        AlterColumnOperation => true,
+        RenameTableOperation => true,
+        RenameColumnOperation => true,
+        _ => false
+    };
 
     private static string FormatDescription(MigrationOperation operation, string? table, string? name)
     {
