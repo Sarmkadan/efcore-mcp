@@ -65,7 +65,7 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
             {
                 var row = new object?[reader.FieldCount];
                 for (var i = 0; i < reader.FieldCount; i++)
-                    row[i] = reader.IsDBNull(i) ? null : Normalize(reader.GetValue(i));
+                    row[i] = reader.IsDBNull(i) ? null : ValueSerializer.Serialize(reader.GetValue(i), ctx.Database.ProviderName);
                 rows.Add(row);
             }
 
@@ -277,16 +277,6 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
                upperSql.Contains("ROW_NUMBER()");
     }
 
-    internal static object? Normalize(object? value) => value switch
-    {
-        null or DBNull => null,
-        byte[] bytes => Convert.ToBase64String(bytes),
-        DateTime dt => dt.ToString("O"),
-        DateTimeOffset dto => dto.ToString("O"),
-        Guid g => g.ToString(),
-        decimal or double or float or int or long or short or byte or bool or string => value,
-        _ => value?.ToString()
-    };
 
     /// <summary>
     /// Generates an execution plan for a SQL query without executing it.
