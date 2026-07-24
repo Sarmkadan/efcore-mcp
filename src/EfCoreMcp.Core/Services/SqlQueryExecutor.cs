@@ -31,8 +31,13 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
             throw new QueryRejectedException(rejection);
 
         var limits = request.Limits ?? new QueryLimits();
-        var maxRows = Math.Clamp(limits.MaxRows, 1, 10_000);
-        var timeoutSeconds = Math.Clamp(limits.TimeoutSeconds, 1, 300);
+        if (limits.MaxRows < 1 || limits.MaxRows > 10_000)
+            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"MaxRows must be between 1 and 10000. Got: {limits.MaxRows}"));
+        if (limits.TimeoutSeconds < 1 || limits.TimeoutSeconds > 300)
+            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between 1 and 300. Got: {limits.TimeoutSeconds}"));
+
+        var maxRows = limits.MaxRows;
+        var timeoutSeconds = limits.TimeoutSeconds;
 
         var ctx = contextProvider.GetContext();
         var connection = ctx.Database.GetDbConnection();
@@ -201,7 +206,6 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
     private static string RewriteSqlWithLimit(string sql, int maxRows, string? providerName)
     {
         ArgumentException.ThrowIfNullOrEmpty(sql);
-        var maxRowsClamped = Math.Clamp(maxRows, 1, 10_000);
 
         // Normalize the SQL by trimming whitespace and removing trailing semicolons
         var normalizedSql = sql.Trim();
@@ -221,16 +225,16 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
         var limitClause = (providerName ?? "").ToUpperInvariant() switch
         {
             var p when p.Contains("SQLSERVER") =>
-                $"OFFSET 0 ROWS FETCH NEXT {maxRowsClamped} ROWS ONLY",
+                $"OFFSET 0 ROWS FETCH NEXT {maxRows} ROWS ONLY",
             var p when p.Contains("POSTGRESQL") =>
-                $"LIMIT {maxRowsClamped}",
+                $"LIMIT {maxRows}",
             var p when p.Contains("MYSQL") =>
-                $"LIMIT {maxRowsClamped}",
+                $"LIMIT {maxRows}",
             var p when p.Contains("SQLITE") =>
-                $"LIMIT {maxRowsClamped}",
+                $"LIMIT {maxRows}",
             var p when p.Contains("ORACLE") =>
-                $"FETCH FIRST {maxRowsClamped} ROWS ONLY",
-            _ => $"LIMIT {maxRowsClamped}" // Default to standard LIMIT syntax
+                $"FETCH FIRST {maxRows} ROWS ONLY",
+            _ => $"LIMIT {maxRows}" // Default to standard LIMIT syntax
         };
 
         // For SELECT queries, append the LIMIT clause
@@ -310,7 +314,10 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
 
             await using var command = connection.CreateCommand();
             command.CommandText = explainCommand;
-            command.CommandTimeout = Math.Clamp(request.Limits?.TimeoutSeconds ?? 30, 1, 300);
+            var timeoutSeconds = request.Limits?.TimeoutSeconds ?? 30;
+            if (timeoutSeconds < 1 || timeoutSeconds > 300)
+                throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between 1 and 300. Got: {timeoutSeconds}"));
+            command.CommandTimeout = timeoutSeconds;
 
             // Execute the explain command
             var result = await command.ExecuteScalarAsync(ct);

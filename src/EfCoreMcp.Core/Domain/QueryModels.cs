@@ -158,7 +158,10 @@ public enum QueryRejectionCode
     WriteOperationInCte,
 
     /// <summary>Timeout constraint violation.</summary>
-    TimeoutConstraint
+    TimeoutConstraint,
+
+    /// <summary>Limit constraint violation.</summary>
+    LimitExceeded
 }
 
 /// <summary>
