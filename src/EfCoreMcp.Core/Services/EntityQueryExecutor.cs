@@ -33,8 +33,11 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
                 $"Property '{orderBy}' not found on entity '{request.EntityName}'. " +
                 $"Available properties: {string.Join(", ", ResolveEntityType(request.EntityName).GetProperties().Select(p => p.Name))}.");
 
+        var limits = request.Limits ?? new QueryLimits();
+        var take = Math.Clamp(limits.MaxRows, 1, 1000);
+        var skip = Math.Max(request.Skip, 0);
+
         var ctx = contextProvider.GetContext();
-        var take = Math.Clamp(request.Take, 1, 1000);
         var sw = Stopwatch.StartNew();
 
         try
@@ -44,7 +47,7 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
             {
                 var task = (Task<List<object>>)FetchMethod
                     .MakeGenericMethod(ResolveEntityType(request.EntityName).ClrType)
-                    .Invoke(null, [ctx, request.OrderBy, request.OrderDescending, Math.Max(request.Skip, 0), take + 1, innerCt])!;
+                    .Invoke(null, [ctx, request.OrderBy, request.OrderDescending, skip, take + 1, innerCt])!;
                 return await task;
             }, ct);
 
@@ -218,6 +221,6 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
         return [.. items.Cast<object>()];
     }
 
-    private static Task<long> CountCoreAsync<T>(DbContext ctx, CancellationToken ct) where T : class =>
-        ctx.Set<T>().AsNoTracking().LongCountAsync(ct);
+    private static Task<long> CountCoreAsync<T>(DbContext ctx, CancellationToken ct) where T : class
+        => ctx.Set<T>().AsNoTracking().LongCountAsync(ct);
 }

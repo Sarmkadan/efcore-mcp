@@ -1,13 +1,69 @@
 namespace EfCoreMcp.Core.Domain;
 
-public sealed record SqlQueryRequest(string Sql, int MaxRows = 100, int TimeoutSeconds = 30);
+/// <summary>
+/// Common query execution limits applied to both SQL and entity queries.
+/// Ensures consistent safety semantics across all query execution paths.
+/// </summary>
+/// <param name="MaxRows">Maximum number of rows to return (clamped to 1-10000)</param>
+/// <param name="TimeoutSeconds">Maximum execution timeout in seconds (clamped to 1-300)</param>
+public sealed record QueryLimits(int MaxRows = 100, int TimeoutSeconds = 30);
 
+/// <summary>
+/// SQL query request with explicit row limits and timeout constraints.
+/// </summary>
+/// <param name="Sql">The SQL query to execute</param>
+/// <param name="limits">Query execution limits including row count and timeout</param>
+public sealed record SqlQueryRequest(string Sql, QueryLimits? limits = null)
+{
+    /// <summary>
+    /// Gets the query limits with defaults applied if not specified.
+    /// </summary>
+    public QueryLimits Limits => limits ?? new QueryLimits();
+}
+
+/// <summary>
+/// Entity query request with explicit row limits and timeout constraints.
+/// </summary>
+/// <param name="entityName">Name of the entity to query</param>
+/// <param name="limits">Query execution limits including row count and timeout</param>
+/// <param name="orderBy">Property name to order by</param>
+/// <param name="orderDescending">Whether to order descending</param>
 public sealed record EntityQueryRequest(
-    string EntityName,
-    int Take = 50,
-    int Skip = 0,
-    string? OrderBy = null,
-    bool OrderDescending = false);
+    string entityName,
+    QueryLimits? limits = null,
+    string? orderBy = null,
+    bool orderDescending = false)
+{
+    /// <summary>
+    /// Gets the name of the entity to query.
+    /// </summary>
+    public string EntityName { get; init; } = entityName ?? throw new ArgumentNullException(nameof(entityName));
+
+    /// <summary>
+    /// Gets the query limits with defaults applied if not specified.
+    /// </summary>
+    public QueryLimits Limits => limits ?? new QueryLimits();
+
+    /// <summary>
+    /// Gets the effective take value for this query.
+    /// </summary>
+    public int Take => Limits.MaxRows;
+
+    /// <summary>
+    /// Gets the effective skip value for this query.
+    /// </summary>
+    public int Skip { get; init; } = 0;
+
+    /// <summary>
+    /// Gets the property name to order by.
+    /// </summary>
+    public string? OrderBy { get; init; } = orderBy;
+
+    /// <summary>
+    /// Gets whether to order descending.
+    /// </summary>
+    public bool OrderDescending { get; init; } = orderDescending;
+};
 
 public sealed record QueryResult(
     IReadOnlyList<string> Columns,

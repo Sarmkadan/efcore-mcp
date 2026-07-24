@@ -30,10 +30,13 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
         if (rejection is not null)
             throw new QueryRejectedException(rejection);
 
+        var limits = request.Limits ?? new QueryLimits();
+        var maxRows = Math.Clamp(limits.MaxRows, 1, 10_000);
+        var timeoutSeconds = Math.Clamp(limits.TimeoutSeconds, 1, 300);
+
         var ctx = contextProvider.GetContext();
         var connection = ctx.Database.GetDbConnection();
         var sw = Stopwatch.StartNew();
-
         try
         {
             if (connection.State != System.Data.ConnectionState.Open)
@@ -43,11 +46,11 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
             var isReadOnly = await SqlGuard.TrySetReadOnlyAsync(connection, ct);
 
             // Rewrite the SQL query to include a LIMIT clause for server-side row limiting
-            var rewrittenSql = RewriteSqlWithLimit(request.Sql, request.MaxRows, ctx.Database.ProviderName);
+            var rewrittenSql = RewriteSqlWithLimit(request.Sql, maxRows, ctx.Database.ProviderName);
 
             await using var command = connection.CreateCommand();
             command.CommandText = rewrittenSql;
-            command.CommandTimeout = Math.Clamp(request.TimeoutSeconds, 1, 300);
+            command.CommandTimeout = timeoutSeconds;
 
             // Execute with retry policy for transient errors
             await using var reader = await ExecuteWithRetryAsync(
@@ -55,7 +58,6 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
                 ct);
 
             var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
-            var maxRows = Math.Clamp(request.MaxRows, 1, 10_000);
             var rows = new List<IReadOnlyList<object?>>();
             var truncated = false;
 
