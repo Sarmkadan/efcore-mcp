@@ -12,18 +12,20 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
     public Task<QueryResult> QuerySql(
         [Description("A single SELECT (or WITH ... SELECT) statement")] string sql,
         [Description("Maximum rows to return (default 100, max 10000)")] int maxRows = 100,
+        [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default) =>
-        sqlExecutor.ExecuteAsync(new SqlQueryRequest(sql, maxRows), ct);
+        sqlExecutor.ExecuteAsync(new SqlQueryRequest(sql, new QueryLimits(maxRows, timeoutSeconds)), ct);
 
     [McpServerTool(Name = "query_entity"), Description("Read rows of an entity set through EF Core with paging and ordering. Returns scalar properties only.")]
     public Task<QueryResult> QueryEntity(
         [Description("Entity name")] string entityName,
-        [Description("Rows to take (default 50, max 1000)")] int take = 50,
+        [Description("Rows to take (default 100, max 1000)")] int maxRows = 100,
         [Description("Rows to skip")] int skip = 0,
         [Description("Property name to order by")] string? orderBy = null,
         [Description("Order descending")] bool orderDescending = false,
+        [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default) =>
-        entityExecutor.ExecuteAsync(new EntityQueryRequest(entityName, take, skip, orderBy, orderDescending), ct);
+        entityExecutor.ExecuteAsync(new EntityQueryRequest(entityName, new QueryLimits(maxRows, timeoutSeconds), orderBy, orderDescending) { Skip = skip }, ct);
 
     [McpServerTool(Name = "count_entity"), Description("Count rows in an entity set.")]
     public Task<long> CountEntity([Description("Entity name")] string entityName, CancellationToken ct = default) =>
