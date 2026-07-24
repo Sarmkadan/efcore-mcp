@@ -87,6 +87,17 @@ public sealed record QueryResult(
     long ElapsedMilliseconds);
 
 /// <summary>
+/// Result of an execution plan analysis showing the query plan and performance heuristics.
+/// </summary>
+/// <param name="ExecutionPlan">The raw execution plan text from the database engine.</param>
+/// <param name="Summary">Human-readable summary of performance issues detected in the plan.</param>
+/// <param name="Query">The original query being analyzed.</param>
+public sealed record ExecutionPlanResult(
+    string ExecutionPlan,
+    string Summary,
+    string Query);
+
+/// <summary>
 /// Exception thrown when a SQL query is rejected by validation.
 /// This exception carries machine-readable rejection codes that MCP clients can use for programmatic error handling.
 /// </summary>
