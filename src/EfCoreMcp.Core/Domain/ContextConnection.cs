@@ -46,9 +46,11 @@ public sealed record ContextConnectionOptions
 /// <param name="ProviderName">Database provider name.</param>
 /// <param name="Database">Name of the database.</param>
 /// <param name="CanConnect">Whether the context can connect to the database.</param>
+/// <param name="AvailableContextTypes">List of all available DbContext types in the assembly (null if single context).</param>
 public sealed record ContextInfo(
     string ContextType,
     string AssemblyName,
     string? ProviderName,
     string? Database,
-    bool CanConnect);
+    bool CanConnect,
+    IReadOnlyList<string>? AvailableContextTypes = null);
