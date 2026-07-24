@@ -14,5 +14,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\EfCoreMcp.Core\EfCoreMcp.Core.csproj" />
+    <ProjectReference Include="..\..\src\EfCoreMcp\EfCoreMcp.csproj" />
   </ItemGroup>
 </Project>
