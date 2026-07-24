@@ -15,6 +15,7 @@ public interface IModelIntrospector
     EntityDescriptor? DescribeEntity(string entityName);
     IReadOnlyList<string> ListEntityNames();
     string EntityNotFoundMessage(string entityName);
+    void InvalidateCache();
 }
 
 public interface ISqlQueryExecutor

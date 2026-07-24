@@ -67,6 +67,7 @@ internal sealed class StubIntrospector(ModelDescriptor model) : IModelIntrospect
         model.Entities.FirstOrDefault(e => e.Name == entityName);
     public IReadOnlyList<string> ListEntityNames() => model.Entities.Select(e => e.Name).ToList();
     public string EntityNotFoundMessage(string entityName) => $"Entity '{entityName}' not found in the model.";
+    public void InvalidateCache() { }
 }
 
 public class ModelAnalyzerTests : IDisposable

@@ -8,140 +8,199 @@ namespace EfCoreMcp.Core.Services;
 
 public sealed class ModelIntrospector(IDbContextProvider contextProvider) : IModelIntrospector
 {
-    public ModelDescriptor DescribeModel()
-    {
-        var ctx = contextProvider.GetContext();
-        var entities = DesignTimeModel(ctx).GetEntityTypes()
-            .Select(Describe)
-            .OrderBy(e => e.Name, StringComparer.Ordinal)
-            .ToList();
-        return new ModelDescriptor(
-            ctx.GetType().Name,
-            ctx.Database.ProviderName,
-            entities);
-    }
+	private readonly object _cacheLock = new();
+	private (string AssemblyIdentity, ModelDescriptor Descriptor)? _modelCache;
 
-    public EntityDescriptor? DescribeEntity(string entityName)
-    {
-        var entityType = FindEntityType(entityName);
-        return entityType is null ? null : Describe(entityType);
-    }
+	public ModelDescriptor DescribeModel()
+	{
+		var ctx = contextProvider.GetContext();
+		var assemblyIdentity = GetAssemblyIdentity(ctx);
 
-    public IReadOnlyList<string> ListEntityNames() =>
-        DesignTimeModel(contextProvider.GetContext()).GetEntityTypes()
-            .Select(e => e.ShortName())
-            .OrderBy(n => n, StringComparer.Ordinal)
-            .ToList();
+		lock (_cacheLock)
+		{
+			if (_modelCache.HasValue && _modelCache.Value.AssemblyIdentity == assemblyIdentity)
+			{
+				return _modelCache.Value.Descriptor;
+			}
+		}
 
-    private static IModel DesignTimeModel(DbContext ctx) =>
-        ctx.GetService<IDesignTimeModel>().Model;
+		var entities = DesignTimeModel(ctx).GetEntityTypes()
+			.Select(Describe)
+			.OrderBy(e => e.Name, StringComparer.Ordinal)
+			.ToList();
+		var descriptor = new ModelDescriptor(
+			ctx.GetType().Name,
+			ctx.Database.ProviderName,
+			entities);
 
-    internal IEntityType? FindEntityType(string entityName)
-    {
-        var model = DesignTimeModel(contextProvider.GetContext());
-        return model.GetEntityTypes().FirstOrDefault(e =>
-            string.Equals(e.Name, entityName, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(e.ShortName(), entityName, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(e.GetTableName(), entityName, StringComparison.OrdinalIgnoreCase));
-    }
+		lock (_cacheLock)
+		{
+			_modelCache = (assemblyIdentity, descriptor);
+		}
 
-    public string EntityNotFoundMessage(string entityName)
-    {
-        var names = ListEntityNames();
-        var close = names
-            .Where(n =>
-                n.Contains(entityName, StringComparison.OrdinalIgnoreCase) ||
-                entityName.Contains(n, StringComparison.OrdinalIgnoreCase) ||
-                Levenshtein(n.ToLowerInvariant(), entityName.ToLowerInvariant()) <= 2)
-            .Take(3)
-            .ToList();
-        var hint = close.Count > 0
-            ? $" Did you mean: {string.Join(", ", close)}?"
-            : $" Available entities: {string.Join(", ", names)}.";
-        return $"Entity '{entityName}' not found in the model.{hint}";
-    }
+		return descriptor;
+	}
 
-    private static int Levenshtein(string a, string b)
-    {
-        if (Math.Abs(a.Length - b.Length) > 2)
-            return int.MaxValue;
-        var prev = Enumerable.Range(0, b.Length + 1).ToArray();
-        var curr = new int[b.Length + 1];
-        for (var i = 1; i <= a.Length; i++)
-        {
-            curr[0] = i;
-            for (var j = 1; j <= b.Length; j++)
-                curr[j] = Math.Min(Math.Min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
-            (prev, curr) = (curr, prev);
+	public EntityDescriptor? DescribeEntity(string entityName)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(entityName);
+		var entityType = FindEntityType(entityName);
+		return entityType is null ? null : Describe(entityType);
+	}
+
+	public IReadOnlyList<string> ListEntityNames()
+	{
+		var ctx = contextProvider.GetContext();
+		var assemblyIdentity = GetAssemblyIdentity(ctx);
+
+		lock (_cacheLock)
+		{
+			if (_modelCache.HasValue && _modelCache.Value.AssemblyIdentity == assemblyIdentity)
+			{
+				return _modelCache.Value.Descriptor.Entities.Select(e => e.Name).ToList();
+			}
+		}
+
+		var names = DesignTimeModel(ctx).GetEntityTypes()
+			.Select(e => e.ShortName())
+			.OrderBy(n => n, StringComparer.Ordinal)
+			.ToList();
+
+		lock (_cacheLock)
+		{
+			if (_modelCache.HasValue && _modelCache.Value.AssemblyIdentity == assemblyIdentity)
+			{
+				return _modelCache.Value.Descriptor.Entities.Select(e => e.Name).ToList();
+			}
+			return names;
         }
-        return prev[b.Length];
-    }
+	}
 
-    private static EntityDescriptor Describe(IEntityType entity)
-    {
-        var pk = entity.FindPrimaryKey();
-        return new EntityDescriptor(
-            entity.ShortName(),
-            entity.ClrType.FullName ?? entity.ClrType.Name,
-            entity.GetTableName(),
-            entity.GetSchema(),
-            entity.IsOwned(),
-            entity.GetComment(),
-            entity.GetProperties().Select(p => Describe(p, pk)).ToList(),
-            pk is null ? null : Describe(pk),
-            entity.GetKeys().Where(k => !k.IsPrimaryKey()).Select(Describe).ToList(),
-            entity.GetForeignKeys().Select(Describe).ToList(),
-            entity.GetNavigations().Select(Describe).ToList(),
-            entity.GetIndexes().Select(Describe).ToList());
-    }
+	private static IModel DesignTimeModel(DbContext ctx) =>
+		ctx.GetService<IDesignTimeModel>().Model;
 
-    private static PropertyDescriptor Describe(IProperty property, IKey? pk) => new(
-        property.Name,
-        FormatClrType(property.ClrType),
-        property.GetColumnName(),
-        property.GetColumnType(),
-        property.IsNullable,
-        pk?.Properties.Contains(property) ?? false,
-        property.IsForeignKey(),
-        property.IsShadowProperty(),
-        property.GetMaxLength(),
-        property.GetPrecision(),
-        property.GetScale(),
-        property.GetDefaultValueSql(),
-        property.ValueGenerated.ToString(),
-        property.IsConcurrencyToken);
+	internal IEntityType? FindEntityType(string entityName)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(entityName);
+		var ctx = contextProvider.GetContext();
+		var model = DesignTimeModel(ctx);
+		return model.GetEntityTypes().FirstOrDefault(e =>
+			string.Equals(e.Name, entityName, StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(e.ShortName(), entityName, StringComparison.OrdinalIgnoreCase) ||
+			string.Equals(e.GetTableName(), entityName, StringComparison.OrdinalIgnoreCase));
+	}
 
-    private static KeyDescriptor Describe(IKey key) => new(
-        key.GetName(),
-        key.Properties.Select(p => p.Name).ToList(),
-        key.IsPrimaryKey());
+	public string EntityNotFoundMessage(string entityName)
+	{
+		ArgumentException.ThrowIfNullOrEmpty(entityName);
+		var names = ListEntityNames();
+		var close = names
+			.Where(n =>
+				n.Contains(entityName, StringComparison.OrdinalIgnoreCase) ||
+				entityName.Contains(n, StringComparison.OrdinalIgnoreCase) ||
+				Levenshtein(n.ToLowerInvariant(), entityName.ToLowerInvariant()) <= 2)
+			.Take(3)
+			.ToList();
+		var hint = close.Count > 0
+			? $" Did you mean: {string.Join(", ", close)}?"
+			: $" Available entities: {string.Join(", ", names)}.";
+		return $"Entity '{entityName}' not found in the model.{hint}";
+	}
 
-    private static ForeignKeyDescriptor Describe(IForeignKey fk) => new(
-        fk.GetConstraintName(),
-        fk.PrincipalEntityType.ShortName(),
-        fk.DeclaringEntityType.ShortName(),
-        fk.Properties.Select(p => p.Name).ToList(),
-        fk.PrincipalKey.Properties.Select(p => p.Name).ToList(),
-        fk.DeleteBehavior.ToString(),
-        fk.IsRequired,
-        fk.IsUnique);
+	private static int Levenshtein(string a, string b)
+	{
+		if (Math.Abs(a.Length - b.Length) > 2)
+			return int.MaxValue;
+		var prev = Enumerable.Range(0, b.Length + 1).ToArray();
+		var curr = new int[b.Length + 1];
+		for (var i = 1; i <= a.Length; i++)
+		{
+			curr[0] = i;
+			for (var j = 1; j <= b.Length; j++)
+				curr[j] = Math.Min(Math.Min(prev[j] + 1, curr[j - 1] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+			(prev, curr) = (curr, prev);
+		}
+		return prev[b.Length];
+	}
 
-    private static NavigationDescriptor Describe(INavigation nav) => new(
-        nav.Name,
-        nav.TargetEntityType.ShortName(),
-        nav.IsCollection,
-        nav.IsOnDependent,
-        nav.Inverse?.Name);
+	private static EntityDescriptor Describe(IEntityType entity)
+	{
+		var pk = entity.FindPrimaryKey();
+		return new EntityDescriptor(
+			entity.ShortName(),
+			entity.ClrType.FullName ?? entity.ClrType.Name,
+			entity.GetTableName(),
+			entity.GetSchema(),
+			entity.IsOwned(),
+			entity.GetComment(),
+			entity.GetProperties().Select(p => Describe(p, pk)).ToList(),
+			pk is null ? null : Describe(pk),
+			entity.GetKeys().Where(k => !k.IsPrimaryKey()).Select(Describe).ToList(),
+			entity.GetForeignKeys().Select(Describe).ToList(),
+			entity.GetNavigations().Select(Describe).ToList(),
+			entity.GetIndexes().Select(Describe).ToList());
+	}
 
-    private static IndexDescriptor Describe(IIndex index) => new(
-        index.GetDatabaseName(),
-        index.Properties.Select(p => p.Name).ToList(),
-        index.IsUnique,
-        index.GetFilter());
+	private static PropertyDescriptor Describe(IProperty property, IKey? pk) => new(
+		property.Name,
+		FormatClrType(property.ClrType),
+		property.GetColumnName(),
+		property.GetColumnType(),
+		property.IsNullable,
+		pk?.Properties.Contains(property) ?? false,
+		property.IsForeignKey(),
+		property.IsShadowProperty(),
+		property.GetMaxLength(),
+		property.GetPrecision(),
+		property.GetScale(),
+		property.GetDefaultValueSql(),
+		property.ValueGenerated.ToString(),
+		property.IsConcurrencyToken);
 
-    private static string FormatClrType(Type type)
-    {
-        var underlying = Nullable.GetUnderlyingType(type);
-        return underlying is null ? type.Name : underlying.Name + "?";
-    }
+	private static KeyDescriptor Describe(IKey key) => new(
+		key.GetName(),
+		key.Properties.Select(p => p.Name).ToList(),
+		key.IsPrimaryKey());
+
+	private static ForeignKeyDescriptor Describe(IForeignKey fk) => new(
+		fk.GetConstraintName(),
+		fk.PrincipalEntityType.ShortName(),
+		fk.DeclaringEntityType.ShortName(),
+		fk.Properties.Select(p => p.Name).ToList(),
+		fk.PrincipalKey.Properties.Select(p => p.Name).ToList(),
+		fk.DeleteBehavior.ToString(),
+		fk.IsRequired,
+		fk.IsUnique);
+
+	private static NavigationDescriptor Describe(INavigation nav) => new(
+		nav.Name,
+		nav.TargetEntityType.ShortName(),
+		nav.IsCollection,
+		nav.IsOnDependent,
+		nav.Inverse?.Name);
+
+	private static IndexDescriptor Describe(IIndex index) => new(
+		index.GetDatabaseName(),
+		index.Properties.Select(p => p.Name).ToList(),
+		index.IsUnique,
+		index.GetFilter());
+
+	private static string FormatClrType(Type type)
+	{
+		var underlying = Nullable.GetUnderlyingType(type);
+		return underlying is null ? type.Name : underlying.Name + "?";
+	}
+
+	private string GetAssemblyIdentity(DbContext ctx)
+	{
+		return ctx.GetType().Assembly.Location;
+	}
+
+	public void InvalidateCache()
+	{
+		lock (_cacheLock)
+		{
+			_modelCache = null;
+		}
+	}
 }
