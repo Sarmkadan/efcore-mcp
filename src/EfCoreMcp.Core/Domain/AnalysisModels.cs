@@ -36,4 +36,5 @@ public sealed record RelationshipPath(
 public sealed record DependencyOrder(
     IReadOnlyList<string> InsertOrder,
     IReadOnlyList<string> DeleteOrder,
-    IReadOnlyList<string> CyclicEntities);
+    IReadOnlyList<string> CyclicEntities,
+    IReadOnlyList<IReadOnlyList<string>> DetectedCycles);

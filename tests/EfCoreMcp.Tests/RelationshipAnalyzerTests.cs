@@ -65,6 +65,7 @@ public class RelationshipAnalyzerTests : IDisposable
     {
         var order = _analyzer.GetDependencyOrder();
         Assert.Empty(order.CyclicEntities);
+        Assert.Empty(order.DetectedCycles);
         Assert.True(order.InsertOrder.IndexOf("Store") < order.InsertOrder.IndexOf("Sale"));
         Assert.True(order.InsertOrder.IndexOf("Customer") < order.InsertOrder.IndexOf("Sale"));
         Assert.Equal(order.InsertOrder.Reverse(), order.DeleteOrder);
