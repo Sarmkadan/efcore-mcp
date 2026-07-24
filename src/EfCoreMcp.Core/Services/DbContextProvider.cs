@@ -21,7 +21,7 @@ public sealed class DbContextProvider : IDbContextProvider
     public DbContextProvider(ContextConnectionOptions options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _cache = new DbContextCache(_options);
+        _cache = new DbContextCache(_options, this);
     }
 
     public DbContext GetContext()
@@ -61,7 +61,7 @@ public sealed class DbContextProvider : IDbContextProvider
         lock (_gate)
         {
             _cache.Dispose();
-            _cache = new DbContextCache(_options);
+            _cache = new DbContextCache(_options, this);
         }
     }
 
@@ -76,15 +76,17 @@ public sealed class DbContextProvider : IDbContextProvider
     private sealed class DbContextCache : IDisposable
     {
         private readonly ContextConnectionOptions _options;
+	private readonly IModelIntrospector? _introspector;
         private AssemblyLoadContext? _loadContext;
         private Func<DbContext>? _factory;
         private FileSystemWatcher? _watcher;
         private DateTime _lastAssemblyWriteTime;
         private bool _disposed;
 
-        public DbContextCache(ContextConnectionOptions options)
+        public DbContextCache(ContextConnectionOptions options, IDbContextProvider? provider = null)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
+		_introspector = provider as IModelIntrospector;
             Initialize();
         }
 
@@ -180,6 +182,7 @@ public sealed class DbContextProvider : IDbContextProvider
             {
                 // Dispose old context and load context
                 _loadContext?.Unload();
+		 _introspector?.InvalidateCache();
                 _loadContext = null;
 
                 // Clean up temp files before recreating
@@ -268,7 +271,8 @@ public sealed class DbContextProvider : IDbContextProvider
             try { _watcher?.Dispose(); }
             catch { /* Best effort */ }
 
-            try { _loadContext?.Unload(); }
+            try { _loadContext?.Unload();
+		 _introspector?.InvalidateCache(); }
             catch { /* Best effort */ }
         }
     }
