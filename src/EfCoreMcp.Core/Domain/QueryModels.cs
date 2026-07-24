@@ -118,6 +118,28 @@ public sealed record ExecutionPlanResult(
 /// Exception thrown when a SQL query is rejected by validation.
 /// This exception carries machine-readable rejection codes that MCP clients can use for programmatic error handling.
 /// </summary>
+/// <remarks>
+/// <para>This exception is the standard mechanism for signaling query validation failures to callers.
+/// It wraps a <see cref="QueryRejection"/> which contains both machine-readable error codes (<see cref="QueryRejection.Code"/>)
+/// and human-readable error messages (<see cref="QueryRejection.Reason"/>).</para>
+///
+/// <para><strong>Error-Signaling Contract:</strong> The codebase uses a unified error-signaling contract
+/// where <see cref="SqlGuard.Validate(string)"/> returns a <see cref="QueryRejection"/> for validation failures.
+/// Callers convert this to a <see cref="QueryRejectedException"/> and throw it. This design ensures consistency:
+/// <list type="bullet">
+/// <item>All validation failures use <see cref="QueryRejection"/>/
+/// <see cref="QueryRejectedException"/> - no other exception types for read-only violations</item>
+/// <item><see cref="QueryRejection"/> provides structured error information with codes</item>
+/// <item><see cref="QueryRejectedException"/> provides exception-throwing capability</item>
+/// </list>
+/// </para>
+///
+/// <para><strong>Design Decision:</strong> There is intentionally no <c>ReadOnlyQueryViolationException</c>.
+/// The <see cref="QueryRejection"/>/
+/// <see cref="QueryRejectedException"/> pair provides all necessary functionality without duplication.
+/// Any attempt to introduce a separate exception type for read-only violations would violate this contract
+/// and create inconsistency in error handling.</para>
+/// </remarks>
 /// <param name="rejection">The rejection information containing error code and message</param>
 public sealed class QueryRejectedException : Exception
 {
@@ -131,6 +153,7 @@ public sealed class QueryRejectedException : Exception
     /// Initializes a new instance of the QueryRejectedException class.
     /// </summary>
     /// <param name="rejection">The rejection information containing error code and message</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="rejection"/> is null</exception>
     public QueryRejectedException(QueryRejection rejection) : base(rejection.Reason)
     {
         Rejection = rejection ?? throw new ArgumentNullException(nameof(rejection));
@@ -141,6 +164,7 @@ public sealed class QueryRejectedException : Exception
     /// </summary>
     /// <param name="rejection">The rejection information</param>
     /// <param name="message">Additional context message</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="rejection"/> is null</exception>
     public QueryRejectedException(QueryRejection rejection, string message) : base($"{message}: {rejection.Reason}")
     {
         Rejection = rejection ?? throw new ArgumentNullException(nameof(rejection));
@@ -183,8 +207,22 @@ public enum QueryRejectionCode
 
 /// <summary>
 /// Represents a rejected query with machine-readable error code and human-readable reason.
-/// Used as a discriminated union with QueryResult to provide consistent error handling.
+/// This is the primary mechanism for signaling query validation failures in the SqlGuard validation system.
+/// It is used as a discriminated union with <see cref="QueryResult"/> to provide consistent error handling.
 /// </summary>
+/// <remarks>
+/// <para>QueryRejection is returned by <see cref="SqlGuard.Validate(string)"/> for validation failures.
+/// Callers should convert this to a <see cref="QueryRejectedException"/> and throw it to signal the error to callers.
+/// </para>
+/// <para>This design ensures a single, consistent error-signaling contract throughout the query execution pipeline.
+/// There is no need for a separate <c>ReadOnlyQueryViolationException</c> - the <see cref="QueryRejection"/>/
+/// <see cref="QueryRejectedException"/> pair provides all necessary functionality with clear separation of concerns:
+/// <list type="bullet">
+/// <item><see cref="QueryRejection"/> carries machine-readable error codes and human-readable messages</item>
+/// <item><see cref="QueryRejectedException"/> wraps the rejection for throwing as an exception</item>
+/// </list>
+/// </para>
+/// </remarks>
 /// <param name="Code">Machine-readable error code for programmatic handling.</param>
 /// <param name="Reason">Human-readable error message for display.</param>
 public sealed record QueryRejection(QueryRejectionCode Code, string Reason);
