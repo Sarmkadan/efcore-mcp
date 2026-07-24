@@ -11,44 +11,77 @@ public sealed record QueryLimits(int MaxRows = 100, int TimeoutSeconds = 30);
 /// <summary>
 /// SQL query request with explicit row limits and timeout constraints.
 /// </summary>
-/// <param name="Sql">The SQL query to execute</param>
-/// <param name="limits">Query execution limits including row count and timeout</param>
-public sealed record SqlQueryRequest(string Sql, QueryLimits? limits = null)
+public sealed record SqlQueryRequest
 {
+    /// <summary>
+    /// Gets the SQL query to execute.
+    /// </summary>
+    public string Sql { get; }
+
     /// <summary>
     /// Gets the query limits with defaults applied if not specified.
     /// </summary>
-    public QueryLimits Limits => limits ?? new QueryLimits();
+    public QueryLimits Limits { get; init; } = new();
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SqlQueryRequest"/> class.
+    /// </summary>
+    /// <param name="sql">The SQL query to execute. Must not be null, empty, or whitespace.</param>
+    /// <param name="limits">Query execution limits including row count and timeout</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="sql"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="sql"/> is empty or whitespace.</exception>
+    public SqlQueryRequest(string sql, QueryLimits? limits = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(sql, nameof(sql));
+        Sql = sql;
+        Limits = limits ?? new QueryLimits();
+    }
 }
 
 /// <summary>
 /// Entity query request with explicit row limits and timeout constraints.
 /// </summary>
-/// <param name="entityName">Name of the entity to query</param>
-/// <param name="limits">Query execution limits including row count and timeout</param>
-/// <param name="orderBy">Property name to order by</param>
-/// <param name="orderDescending">Whether to order descending</param>
-/// <param name="filter">Optional filter expression to apply to the query</param>
-/// <param name="filterParameters">Parameters for the filter expression</param>
-public sealed record EntityQueryRequest(
-    string entityName,
-    QueryLimits? limits = null,
-    string? orderBy = null,
-    bool orderDescending = false,
-    string? filter = null,
-    IReadOnlyDictionary<string, object>? filterParameters = null)
+public sealed record EntityQueryRequest
 {
     /// <summary>
     /// Gets the name of the entity to query.
     /// </summary>
-    public string EntityName { get; init; } = entityName ?? throw new ArgumentNullException(nameof(entityName));
+    public string EntityName { get; }
 
     /// <summary>
     /// Gets the query limits with defaults applied and values clamped to allowed ranges.
     /// </summary>
-    public QueryLimits Limits => new(
-        Math.Clamp(limits?.MaxRows ?? 100, 1, 10000),
-        Math.Clamp(limits?.TimeoutSeconds ?? 30, 1, 300));
+    public QueryLimits Limits { get; init; } = new();
+
+    /// <summary>
+    /// Gets the effective take value for this query.
+    /// </summary>
+    public int Take => Limits.MaxRows;
+
+    /// <summary>
+    /// Gets the effective skip value for this query.
+    /// </summary>
+    public int Skip { get; init; } = 0;
+
+    /// <summary>
+    /// Gets the property name to order by.
+    /// </summary>
+    public string? OrderBy { get; init; }
+
+    /// <summary>
+    /// Gets whether to order descending.
+    /// </summary>
+    public bool OrderDescending { get; init; }
+
+    /// <summary>
+    /// Gets the optional filter expression to apply to the query.
+    /// </summary>
+    public string? Filter { get; init; }
+
+    /// <summary>
+    /// Gets the parameters for the filter expression.
+    /// </summary>
+    public IReadOnlyDictionary<string, object>? FilterParameters { get; init; }
 
     /// <summary>
     /// Validates the request inputs.
@@ -66,35 +99,35 @@ public sealed record EntityQueryRequest(
     }
 
     /// <summary>
-    /// Gets the effective take value for this query.
+    /// Initializes a new instance of the <see cref="EntityQueryRequest"/> class.
     /// </summary>
-    public int Take => Limits.MaxRows;
-
-    /// <summary>
-    /// Gets the effective skip value for this query.
-    /// </summary>
-    public int Skip { get; init; } = 0;
-
-    /// <summary>
-    /// Gets the property name to order by.
-    /// </summary>
-    public string? OrderBy { get; init; } = orderBy;
-
-    /// <summary>
-    /// Gets whether to order descending.
-    /// </summary>
-    public bool OrderDescending { get; init; } = orderDescending;
-
-    /// <summary>
-    /// Gets the optional filter expression to apply to the query.
-    /// </summary>
-    public string? Filter { get; init; } = filter;
-
-    /// <summary>
-    /// Gets the parameters for the filter expression.
-    /// </summary>
-    public IReadOnlyDictionary<string, object>? FilterParameters { get; init; } = filterParameters;
-};
+    /// <param name="entityName">Name of the entity to query. Must not be null, empty, or whitespace.</param>
+    /// <param name="limits">Query execution limits including row count and timeout</param>
+    /// <param name="orderBy">Property name to order by</param>
+    /// <param name="orderDescending">Whether to order descending</param>
+    /// <param name="filter">Optional filter expression to apply to the query</param>
+    /// <param name="filterParameters">Parameters for the filter expression</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="entityName"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="entityName"/> is empty or whitespace.</exception>
+    public EntityQueryRequest(
+        string entityName,
+        QueryLimits? limits = null,
+        string? orderBy = null,
+        bool orderDescending = false,
+        string? filter = null,
+        IReadOnlyDictionary<string, object>? filterParameters = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(entityName, nameof(entityName));
+        EntityName = entityName;
+        Limits = new QueryLimits(
+            Math.Clamp(limits?.MaxRows ?? 100, 1, 10000),
+            Math.Clamp(limits?.TimeoutSeconds ?? 30, 1, 300));
+        OrderBy = orderBy;
+        OrderDescending = orderDescending;
+        Filter = filter;
+        FilterParameters = filterParameters;
+    }
+}
 
 public sealed record QueryResult(
     IReadOnlyList<string> Columns,
@@ -127,7 +160,7 @@ public sealed record ExecutionPlanResult(
 /// where <see cref="SqlGuard.Validate(string)"/> returns a <see cref="QueryRejection"/> for validation failures.
 /// Callers convert this to a <see cref="QueryRejectedException"/> and throw it. This design ensures consistency:
 /// <list type="bullet">
-/// <item>All validation failures use <see cref="QueryRejection"/>/
+/// <item>All validation failures use <see cref="QueryRejection"/>
 /// <see cref="QueryRejectedException"/> - no other exception types for read-only violations</item>
 /// <item><see cref="QueryRejection"/> provides structured error information with codes</item>
 /// <item><see cref="QueryRejectedException"/> provides exception-throwing capability</item>
@@ -135,7 +168,7 @@ public sealed record ExecutionPlanResult(
 /// </para>
 ///
 /// <para><strong>Design Decision:</strong> There is intentionally no <c>ReadOnlyQueryViolationException</c>.
-/// The <see cref="QueryRejection"/>/
+/// The <see cref="QueryRejection"/>
 /// <see cref="QueryRejectedException"/> pair provides all necessary functionality without duplication.
 /// Any attempt to introduce a separate exception type for read-only violations would violate this contract
 /// and create inconsistency in error handling.</para>
@@ -215,7 +248,7 @@ public enum QueryRejectionCode
 /// Callers should convert this to a <see cref="QueryRejectedException"/> and throw it to signal the error to callers.
 /// </para>
 /// <para>This design ensures a single, consistent error-signaling contract throughout the query execution pipeline.
-/// There is no need for a separate <c>ReadOnlyQueryViolationException</c> - the <see cref="QueryRejection"/>/
+/// There is no need for a separate <c>ReadOnlyQueryViolationException</c> - the <see cref="QueryRejection"/>
 /// <see cref="QueryRejectedException"/> pair provides all necessary functionality with clear separation of concerns:
 /// <list type="bullet">
 /// <item><see cref="QueryRejection"/> carries machine-readable error codes and human-readable messages</item>
