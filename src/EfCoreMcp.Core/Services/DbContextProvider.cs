@@ -38,12 +38,26 @@ public sealed class DbContextProvider : IDbContextProvider
         bool canConnect;
         try { canConnect = ctx.Database.CanConnect(); }
         catch { canConnect = false; }
+
+        // Get all available context types in the assembly
+        var allContextTypes = GetAllContextTypeNames(ctx.GetType().Assembly);
+
         return new ContextInfo(
             ctx.GetType().FullName ?? ctx.GetType().Name,
             ctx.GetType().Assembly.GetName().Name ?? "",
             ctx.Database.ProviderName,
             TryGetDatabaseName(ctx),
-            canConnect);
+            canConnect,
+            allContextTypes);
+    }
+
+    private static IReadOnlyList<string>? GetAllContextTypeNames(Assembly assembly)
+    {
+        var contextTypes = assembly.GetTypes()
+            .Where(t => typeof(DbContext).IsAssignableFrom(t) && !t.IsAbstract)
+            .ToList();
+
+        return contextTypes.Count > 1 ? contextTypes.Select(t => t.FullName ?? t.Name).ToList() : null;
     }
 
     private static string? TryGetDatabaseName(DbContext ctx)
@@ -76,7 +90,7 @@ public sealed class DbContextProvider : IDbContextProvider
     private sealed class DbContextCache : IDisposable
     {
         private readonly ContextConnectionOptions _options;
-	private readonly IModelIntrospector? _introspector;
+        private readonly IModelIntrospector? _introspector;
         private AssemblyLoadContext? _loadContext;
         private Func<DbContext>? _factory;
         private FileSystemWatcher? _watcher;
@@ -86,7 +100,7 @@ public sealed class DbContextProvider : IDbContextProvider
         public DbContextCache(ContextConnectionOptions options, IDbContextProvider? provider = null)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
-		_introspector = provider as IModelIntrospector;
+            _introspector = provider as IModelIntrospector;
             Initialize();
         }
 
@@ -182,7 +196,7 @@ public sealed class DbContextProvider : IDbContextProvider
             {
                 // Dispose old context and load context
                 _loadContext?.Unload();
-		 _introspector?.InvalidateCache();
+                _introspector?.InvalidateCache();
                 _loadContext = null;
 
                 // Clean up temp files before recreating
@@ -247,7 +261,7 @@ public sealed class DbContextProvider : IDbContextProvider
                 0 => throw new InvalidOperationException("No DbContext types found in the assembly."),
                 1 => contextTypes[0],
                 _ => throw new InvalidOperationException(
-                    $"Multiple DbContext types found, specify one: {string.Join(", ", contextTypes.Select(t => t.Name))}")
+                    $"Multiple DbContext types found ({contextTypes.Count}), specify one using --context <TypeName> or ContextTypeName in options. Available: {string.Join(", ", contextTypes.Select(t => t.FullName ?? t.Name))}")
             };
         }
 
@@ -272,7 +286,7 @@ public sealed class DbContextProvider : IDbContextProvider
             catch { /* Best effort */ }
 
             try { _loadContext?.Unload();
-		 _introspector?.InvalidateCache(); }
+                _introspector?.InvalidateCache(); }
             catch { /* Best effort */ }
         }
     }
