@@ -76,14 +76,15 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
 
             // If we got more rows than MaxRows, mark as truncated
             // This can happen if the LIMIT clause couldn't be applied (e.g., complex query structure)
-            if (rows.Count > maxRows)
+            var totalRowCount = rows.Count;
+        if (totalRowCount > maxRows)
             {
                 truncated = true;
                 rows = rows.Take(maxRows).ToList();
             }
 
             sw.Stop();
-            return new QueryResult(columns, rows, rows.Count, truncated, sw.ElapsedMilliseconds);
+            return new QueryResult(columns, rows, totalRowCount, truncated, sw.ElapsedMilliseconds);
         }
         catch (OperationCanceledException)
         {
