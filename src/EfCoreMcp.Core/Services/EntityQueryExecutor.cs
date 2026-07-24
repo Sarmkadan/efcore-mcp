@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
+using EfCoreMcp.Core.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -81,9 +82,10 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
 
             var scalarProps = entityType.GetProperties().Where(p => !p.IsShadowProperty()).ToList();
             var columns = scalarProps.Select(p => p.Name).ToList();
+        var providerName = ctx.Database.ProviderName;
             var rows = items
                 .Select(IReadOnlyList<object?> (item) => scalarProps
-                    .Select(p => SqlQueryExecutor.Normalize(p.PropertyInfo?.GetValue(item) ?? p.FieldInfo?.GetValue(item)))
+                    .Select(p => ValueSerializer.Serialize(p.PropertyInfo?.GetValue(item) ?? p.FieldInfo?.GetValue(item), providerName))
                     .ToList())
                 .ToList();
 
