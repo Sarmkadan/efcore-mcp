@@ -11,25 +11,33 @@ internal static class ConnectionStringSanitizer
     /// Sanitizes a connection string by removing sensitive credentials.
     /// </summary>
     /// <param name="connectionString">The raw connection string that may contain credentials.</param>
-    /// <returns>A sanitized connection string with credentials redacted, or null if input is null.</returns>
+    /// <returns>A sanitized connection string with credentials redacted, or null if input is null or whitespace.</returns>
     /// <remarks>
     /// This method parses the connection string and removes common credential-related keys:
     /// - Password
     /// - Pwd
     /// - User ID
     /// - Uid
+    /// - User
+    /// - Username
     /// - Account Key
     /// - Access Key
     /// - Authentication
     /// - Token
+    /// - Integrated Security
+    /// - Persist Security Info
     ///
     /// The sanitized string will only contain server, database, and provider information.
+    /// <para>
+    /// SECURITY: Never log or expose the original connection string. Always use sanitized versions
+    /// in error messages, logs, and ToString() implementations to prevent credential leakage.
+    /// </para>
     /// </remarks>
     public static string? Sanitize(string? connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            return connectionString;
+            return null;
         }
 
         try
@@ -47,7 +55,7 @@ internal static class ConnectionStringSanitizer
         }
         catch
         {
-            // If parsing fails, return a generic placeholder
+            // If parsing fails, return a generic placeholder to avoid exposing any sensitive data
             return "[REDACTED CONNECTION STRING]";
         }
     }
@@ -65,38 +73,6 @@ internal static class ConnectionStringSanitizer
             "" => string.Empty,
             _ => "[CONNECTION STRING PRESENT]"
         };
-    }
-
-    /// <summary>
-    /// Removes sensitive credential-related keys from the connection string builder.
-    /// </summary>
-    /// <param name="builder">The connection string builder.</param>
-    private static void RemoveSensitiveKeys(DbConnectionStringBuilder builder)
-    {
-        var keysToRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Password",
-            "Pwd",
-            "User ID",
-            "Uid",
-            "User",
-            "Username",
-            "Account Key",
-            "Access Key",
-            "Authentication",
-            "Token",
-            "Integrated Security",
-            "Persist Security Info"
-        };
-
-        // Remove keys that exist in the builder
-        foreach (var key in keysToRemove)
-        {
-            if (builder.ContainsKey(key))
-            {
-                builder.Remove(key);
-            }
-        }
     }
 
     /// <summary>
@@ -134,5 +110,37 @@ internal static class ConnectionStringSanitizer
         }
 
         return message;
+    }
+
+    /// <summary>
+    /// Removes sensitive credential-related keys from the connection string builder.
+    /// </summary>
+    /// <param name="builder">The connection string builder.</param>
+    private static void RemoveSensitiveKeys(DbConnectionStringBuilder builder)
+    {
+        var keysToRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Password",
+            "Pwd",
+            "User ID",
+            "Uid",
+            "User",
+            "Username",
+            "Account Key",
+            "Access Key",
+            "Authentication",
+            "Token",
+            "Integrated Security",
+            "Persist Security Info"
+        };
+
+        // Remove keys that exist in the builder
+        foreach (var key in keysToRemove)
+        {
+            if (builder.ContainsKey(key))
+            {
+                builder.Remove(key);
+            }
+        }
     }
 }
