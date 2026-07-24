@@ -75,9 +75,11 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
         catch (Exception ex) when (SqlQueryExecutor.IsTransientError(ex))
         {
             // Wrap transient errors after retry attempts
+            var sanitizedMessage = ConnectionStringSanitizer.SanitizeExceptionMessage(
+                $"Transient error occurred after {MaxRetryAttempts} retry attempts. Please try again.",
+                contextProvider.GetContextInfo().Database);
             throw new Exception(
-                $"Transient error occurred after {MaxRetryAttempts} retry attempts. " +
-                $"Please try again. Error: {SqlQueryExecutor.GetErrorMessage(ex)}",
+                $"{sanitizedMessage} Error: {SqlQueryExecutor.GetErrorMessage(ex)}",
                 ex);
         }
     }
@@ -119,9 +121,11 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
         catch (Exception ex) when (SqlQueryExecutor.IsTransientError(ex))
         {
             // Wrap transient errors after retry attempts
+            var sanitizedMessage = ConnectionStringSanitizer.SanitizeExceptionMessage(
+                $"Transient error occurred after {MaxRetryAttempts} retry attempts. Please try again.",
+                contextProvider.GetContextInfo().Database);
             throw new Exception(
-                $"Transient error occurred after {MaxRetryAttempts} retry attempts. " +
-                $"Please try again. Error: {SqlQueryExecutor.GetErrorMessage(ex)}",
+                $"{sanitizedMessage} Error: {SqlQueryExecutor.GetErrorMessage(ex)}",
                 ex);
         }
     }
