@@ -42,6 +42,7 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
     public async Task<QueryResult> ExecuteAsync(EntityQueryRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        request.Validate();
 
         var entityType = ResolveEntityType(request.EntityName);
 
@@ -57,13 +58,7 @@ public sealed class EntityQueryExecutor(IDbContextProvider contextProvider, IMod
             ValidateFilterExpression(filter, request.FilterParameters ?? new Dictionary<string, object>(), entityType);
         }
 
-        var limits = request.Limits ?? new QueryLimits();
-        if (limits.MaxRows < 1 || limits.MaxRows > 10_000)
-            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"MaxRows must be between 1 and 10000. Got: {limits.MaxRows}"));
-        if (limits.TimeoutSeconds < 1 || limits.TimeoutSeconds > 300)
-            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between 1 and 300. Got: {limits.TimeoutSeconds}"));
-
-        var take = limits.MaxRows;
+        var take = request.Limits.MaxRows;
         var skip = Math.Max(request.Skip, 0);
 
         var ctx = contextProvider.GetContext();

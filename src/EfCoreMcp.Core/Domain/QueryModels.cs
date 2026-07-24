@@ -44,9 +44,26 @@ public sealed record EntityQueryRequest(
     public string EntityName { get; init; } = entityName ?? throw new ArgumentNullException(nameof(entityName));
 
     /// <summary>
-    /// Gets the query limits with defaults applied if not specified.
+    /// Gets the query limits with defaults applied and values clamped to allowed ranges.
     /// </summary>
-    public QueryLimits Limits => limits ?? new QueryLimits();
+    public QueryLimits Limits => new(
+        Math.Clamp(limits?.MaxRows ?? 100, 1, 10000),
+        Math.Clamp(limits?.TimeoutSeconds ?? 30, 1, 300));
+
+    /// <summary>
+    /// Validates the request inputs.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when entityName is null or empty.</exception>
+    /// <exception cref="QueryRejectedException">Thrown when limits are invalid.</exception>
+    public void Validate()
+    {
+        ArgumentException.ThrowIfNullOrEmpty(EntityName);
+
+        if (Limits.MaxRows < 1 || Limits.MaxRows > 10_000)
+            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"MaxRows must be between 1 and 10000. Got: {Limits.MaxRows}"));
+        if (Limits.TimeoutSeconds < 1 || Limits.TimeoutSeconds > 300)
+            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between 1 and 300. Got: {Limits.TimeoutSeconds}"));
+    }
 
     /// <summary>
     /// Gets the effective take value for this query.
