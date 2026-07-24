@@ -48,18 +48,25 @@ public class SqlGuardTests
     {
         var rejection = SqlGuard.Validate("SELECT 1; SELECT 2");
         Assert.NotNull(rejection);
+        Assert.Equal(QueryRejectionCode.MultipleStatements, rejection.Code);
         Assert.Contains("Multiple statements", rejection.Reason);
     }
 
     [Theory]
     [InlineData("")]
-    [InlineData("   ")]
-    [InlineData(null)]
-    public void Validate_RejectsEmptyInput(string? sql)
+    [InlineData(" ")]
+    public void Validate_RejectsEmptyInput(string sql)
     {
-        var rejection = SqlGuard.Validate(sql!);
+        var rejection = SqlGuard.Validate(sql);
         Assert.NotNull(rejection);
+        Assert.Equal(QueryRejectionCode.EmptyQuery, rejection.Code);
         Assert.Contains("empty", rejection.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_RejectsNullInput()
+    {
+        Assert.Throws<ArgumentNullException>(() => SqlGuard.Validate(null!));
     }
 
     [Fact]
@@ -67,6 +74,7 @@ public class SqlGuardTests
     {
         var rejection = SqlGuard.Validate("SHOW TABLES");
         Assert.NotNull(rejection);
+        Assert.Equal(QueryRejectionCode.NotSelect, rejection.Code);
         Assert.Contains("Only SELECT", rejection.Reason);
     }
 
@@ -116,15 +124,28 @@ public class SqlGuardTests
     }
 
     [Fact]
-    public void ValidateOrThrow_ThrowsWithReasonOnViolation()
+    public void Validate_ReturnsRejectionWithCodeForForbiddenKeyword()
     {
-        var ex = Assert.Throws<ReadOnlyQueryViolationException>(() => SqlGuard.ValidateOrThrow("DROP TABLE x"));
-        Assert.False(string.IsNullOrWhiteSpace(ex.Reason));
+        var rejection = SqlGuard.Validate("DROP TABLE x");
+        Assert.NotNull(rejection);
+        // DROP TABLE x doesn't start with SELECT or WITH, so it's caught by NotSelect first
+        Assert.Equal(QueryRejectionCode.NotSelect, rejection.Code);
+        Assert.False(string.IsNullOrWhiteSpace(rejection.Reason));
     }
 
     [Fact]
-    public void ValidateOrThrow_PassesValidQuery()
+    public void Validate_ReturnsForbiddenKeywordCodeForWriteOperations()
     {
-        SqlGuard.ValidateOrThrow("SELECT count(*) FROM users");
+        var rejection = SqlGuard.Validate("INSERT INTO users VALUES (1)");
+        Assert.NotNull(rejection);
+        Assert.Equal(QueryRejectionCode.ForbiddenKeyword, rejection.Code);
+        Assert.Contains("insert", rejection.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_PassesValidQuery()
+    {
+        var result = SqlGuard.Validate("SELECT count(*) FROM users");
+        Assert.Null(result);
     }
 }

@@ -19,15 +19,17 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
     /// </summary>
     /// <param name="request">The SQL query request containing query parameters</param>
     /// <param name="ct">Cancellation token for cooperative cancellation</param>
-    /// <returns>Query result with columns, rows, and metadata</returns>
+    /// <returns>Query execution result containing either the successful result or rejection information</returns>
     /// <exception cref="OperationCanceledException">Thrown when the operation is cancelled</exception>
     /// <exception cref="TimeoutException">Thrown when the query exceeds the specified timeout</exception>
-    /// <exception cref="Exception">Thrown for errors after all retry attempts are exhausted</exception>
     public async Task<QueryResult> ExecuteAsync(SqlQueryRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        SqlGuard.ValidateOrThrow(request.Sql);
+        var rejection = SqlGuard.Validate(request.Sql);
+        if (rejection is not null)
+            throw new QueryRejectedException(rejection);
+
         var ctx = contextProvider.GetContext();
         var connection = ctx.Database.GetDbConnection();
         var sw = Stopwatch.StartNew();
