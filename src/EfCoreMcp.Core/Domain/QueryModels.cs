@@ -28,11 +28,15 @@ public sealed record SqlQueryRequest(string Sql, QueryLimits? limits = null)
 /// <param name="limits">Query execution limits including row count and timeout</param>
 /// <param name="orderBy">Property name to order by</param>
 /// <param name="orderDescending">Whether to order descending</param>
+/// <param name="filter">Optional filter expression to apply to the query</param>
+/// <param name="filterParameters">Parameters for the filter expression</param>
 public sealed record EntityQueryRequest(
     string entityName,
     QueryLimits? limits = null,
     string? orderBy = null,
-    bool orderDescending = false)
+    bool orderDescending = false,
+    string? filter = null,
+    IReadOnlyDictionary<string, object>? filterParameters = null)
 {
     /// <summary>
     /// Gets the name of the entity to query.
@@ -63,6 +67,16 @@ public sealed record EntityQueryRequest(
     /// Gets whether to order descending.
     /// </summary>
     public bool OrderDescending { get; init; } = orderDescending;
+
+    /// <summary>
+    /// Gets the optional filter expression to apply to the query.
+    /// </summary>
+    public string? Filter { get; init; } = filter;
+
+    /// <summary>
+    /// Gets the parameters for the filter expression.
+    /// </summary>
+    public IReadOnlyDictionary<string, object>? FilterParameters { get; init; } = filterParameters;
 };
 
 public sealed record QueryResult(

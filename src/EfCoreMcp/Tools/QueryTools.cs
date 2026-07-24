@@ -16,16 +16,18 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
         CancellationToken ct = default) =>
         sqlExecutor.ExecuteAsync(new SqlQueryRequest(sql, new QueryLimits(maxRows, timeoutSeconds)), ct);
 
-    [McpServerTool(Name = "query_entity"), Description("Read rows of an entity set through EF Core with paging and ordering. Returns scalar properties only.")]
+    [McpServerTool(Name = "query_entity"), Description("Read rows of an entity set through EF Core with paging, ordering, and filtering. Returns scalar properties only.")]
     public Task<QueryResult> QueryEntity(
         [Description("Entity name")] string entityName,
         [Description("Rows to take (default 100, max 1000)")] int maxRows = 100,
         [Description("Rows to skip")] int skip = 0,
         [Description("Property name to order by")] string? orderBy = null,
         [Description("Order descending")] bool orderDescending = false,
+        [Description("Optional filter expression (e.g., 'Name == @0 && Age > @1')")] string? filter = null,
+        [Description("Filter parameter values")] IReadOnlyDictionary<string, object>? filterParameters = null,
         [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default) =>
-        entityExecutor.ExecuteAsync(new EntityQueryRequest(entityName, new QueryLimits(maxRows, timeoutSeconds), orderBy, orderDescending) { Skip = skip }, ct);
+        entityExecutor.ExecuteAsync(new EntityQueryRequest(entityName, new QueryLimits(maxRows, timeoutSeconds), orderBy, orderDescending, filter, filterParameters) { Skip = skip }, ct);
 
     [McpServerTool(Name = "count_entity"), Description("Count rows in an entity set.")]
     public Task<long> CountEntity([Description("Entity name")] string entityName, CancellationToken ct = default) =>
