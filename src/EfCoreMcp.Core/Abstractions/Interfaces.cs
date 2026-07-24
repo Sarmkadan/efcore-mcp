@@ -21,6 +21,7 @@ public interface IModelIntrospector
 public interface ISqlQueryExecutor
 {
     Task<QueryResult> ExecuteAsync(SqlQueryRequest request, CancellationToken ct = default);
+    Task<ExecutionPlanResult> ExplainAsync(SqlQueryRequest request, CancellationToken ct = default);
 }
 
 public interface IEntityQueryExecutor

@@ -32,4 +32,11 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
     [McpServerTool(Name = "count_entity"), Description("Count rows in an entity set.")]
     public Task<long> CountEntity([Description("Entity name")] string entityName, CancellationToken ct = default) =>
         entityExecutor.CountAsync(entityName, ct);
+
+    [McpServerTool(Name = "explain_sql"), Description("Generate an execution plan for a SQL query without executing it. Returns the query plan and performance heuristics.")]
+    public Task<ExecutionPlanResult> ExplainSql(
+        [Description("A single SELECT (or WITH ... SELECT) statement to analyze")] string sql,
+        [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
+        CancellationToken ct = default) =>
+        sqlExecutor.ExplainAsync(new SqlQueryRequest(sql, new QueryLimits(0, timeoutSeconds)), ct);
 }
