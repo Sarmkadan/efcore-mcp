@@ -6,7 +6,7 @@ using ModelContextProtocol.Server;
 namespace EfCoreMcp.Tools;
 
 [McpServerToolType]
-public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecutor entityExecutor)
+public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecutor entityExecutor) : IQueryTools
 {
     [McpServerTool(Name = "query_sql"), Description("Run a read-only SQL SELECT query against the database. Non-SELECT statements are rejected.")]
     public Task<QueryResult> QuerySql(
