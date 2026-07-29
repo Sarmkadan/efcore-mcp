@@ -6,7 +6,7 @@ using ModelContextProtocol.Server;
 namespace EfCoreMcp.Tools;
 
 [McpServerToolType]
-public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer relationships)
+public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer relationships) : IAnalysisTools
 {
     [McpServerTool(Name = "validate_model"), Description("Scan the EF Core model for common pitfalls: keyless entities, unbounded strings, decimals without precision, unindexed foreign keys, optional-cascade deletes, multiple cascade paths, navigation-only relationships.")]
     public ModelValidationReport ValidateModel() => analyzer.ValidateModel();
