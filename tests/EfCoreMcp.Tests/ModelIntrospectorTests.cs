@@ -6,7 +6,7 @@ using Xunit;
 
 namespace EfCoreMcp.Tests;
 
-public class Blog
+public class Blog : IBlog
 {
     public int Id { get; set; }
     public string Title { get; set; } = "";
