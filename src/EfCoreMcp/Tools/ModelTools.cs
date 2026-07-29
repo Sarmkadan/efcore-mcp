@@ -6,7 +6,7 @@ using ModelContextProtocol.Server;
 namespace EfCoreMcp.Tools;
 
 [McpServerToolType]
-public sealed class ModelTools(IModelIntrospector introspector, ISchemaExplainer explainer, IDbContextProvider contextProvider)
+public sealed class ModelTools(IModelIntrospector introspector, ISchemaExplainer explainer, IDbContextProvider contextProvider) : IModelTools
 {
     [McpServerTool(Name = "context_info"),
     Description("Get information about the loaded DbContext: type, provider, database, connectivity.")]
