@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using EfCoreMcp.Core.Services;
 
@@ -13,7 +14,7 @@ namespace EfCoreMcp.Core.Domain;
 /// <para>SECURITY: This value is sanitized before logging or displaying. Never expose the raw value.</para>
 /// </param>
 /// <param name="Provider">Database provider name (defaults to "auto").</param>
-public sealed record ContextConnectionOptions
+public sealed class ContextConnectionOptions : IEquatable<ContextConnectionOptions>
 {
     public required string AssemblyPath { get; init; }
 
@@ -45,6 +46,39 @@ public sealed record ContextConnectionOptions
         sb.Append(ConnectionStringSanitizer.GetRedactedDisplay(ConnectionString));
         sb.Append(" }");
         return sb.ToString();
+    }
+
+    // IEquatable implementation
+    public bool Equals(ContextConnectionOptions? other)
+    {
+        if (ReferenceEquals(null, other)) return false;
+        if (ReferenceEquals(this, other)) return true;
+
+        return string.Equals(AssemblyPath, other.AssemblyPath, StringComparison.Ordinal) &&
+               string.Equals(ContextTypeName, other.ContextTypeName, StringComparison.Ordinal) &&
+               string.Equals(ConnectionString, other.ConnectionString, StringComparison.Ordinal) &&
+               string.Equals(Provider, other.Provider, StringComparison.Ordinal);
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as ContextConnectionOptions);
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(
+            AssemblyPath,
+            ContextTypeName,
+            ConnectionString,
+            Provider);
+    }
+
+    public static bool operator ==(ContextConnectionOptions? left, ContextConnectionOptions? right)
+    {
+        return Equals(left, right);
+    }
+
+    public static bool operator !=(ContextConnectionOptions? left, ContextConnectionOptions? right)
+    {
+        return !Equals(left, right);
     }
 }
 
