@@ -3,7 +3,7 @@ using Xunit;
 
 namespace EfCoreMcp.Tests;
 
-public class RelationshipAnalyzerTests : IDisposable
+public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
 {
     private readonly AnalyzerContextProvider _provider = new();
     private readonly RelationshipAnalyzer _analyzer;
