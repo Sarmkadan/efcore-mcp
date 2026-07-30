@@ -6,10 +6,22 @@ using Xunit;
 
 namespace EfCoreMcp.Tests;
 
+/// <summary>
+/// Represents a blog in the EF Core model.
+/// </summary>
 public class Blog : IBlog
 {
+    /// <summary>
+    /// Gets or sets the unique identifier for the blog.
+    /// </summary>
     public int Id { get; set; }
+    /// <summary>
+    /// Gets or sets the title of the blog. Defaults to an empty string and has a maximum length of 200 characters.
+    /// </summary>
     public string Title { get; set; } = "";
+    /// <summary>
+    /// Gets or sets the collection of posts associated with the blog.
+    /// </summary>
     public List<Post> Posts { get; set; } = [];
 }
 
