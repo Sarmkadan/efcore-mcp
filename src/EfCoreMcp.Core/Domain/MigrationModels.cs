@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace EfCoreMcp.Core.Domain;
 
 /// <summary>
@@ -6,10 +9,46 @@ namespace EfCoreMcp.Core.Domain;
 /// <param name="Applied">List of migration names that have been applied to the database.</param>
 /// <param name="Pending">List of migration names that have not been applied to the database.</param>
 /// <param name="HasPendingModelChanges">Whether the current model differs from the last migration snapshot.</param>
-public sealed record MigrationStatus(
-    IReadOnlyList<string> Applied,
-    IReadOnlyList<string> Pending,
-    bool HasPendingModelChanges);
+public sealed class MigrationStatus : IEquatable<MigrationStatus>
+{
+    public IReadOnlyList<string> Applied { get; }
+    public IReadOnlyList<string> Pending { get; }
+    public bool HasPendingModelChanges { get; }
+
+    public MigrationStatus(
+        IReadOnlyList<string> applied,
+        IReadOnlyList<string> pending,
+        bool hasPendingModelChanges)
+    {
+        Applied = applied;
+        Pending = pending;
+        HasPendingModelChanges = hasPendingModelChanges;
+    }
+
+    public bool Equals(MigrationStatus? other)
+    {
+        if (ReferenceEquals(null, other)) return false;
+        if (ReferenceEquals(this, other)) return true;
+
+        return HasPendingModelChanges == other.HasPendingModelChanges
+            && EqualityComparer<IReadOnlyList<string>>.Default.Equals(Applied, other.Applied)
+            && EqualityComparer<IReadOnlyList<string>>.Default.Equals(Pending, other.Pending);
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as MigrationStatus);
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(
+            EqualityComparer<IReadOnlyList<string>>.Default.GetHashCode(Applied),
+            EqualityComparer<IReadOnlyList<string>>.Default.GetHashCode(Pending),
+            HasPendingModelChanges);
+    }
+
+    public static bool operator ==(MigrationStatus? left, MigrationStatus? right) => Equals(left, right);
+
+    public static bool operator !=(MigrationStatus? left, MigrationStatus? right) => !Equals(left, right);
+}
 
 /// <summary>
 /// Represents the difference between the current model and the migration snapshot.
