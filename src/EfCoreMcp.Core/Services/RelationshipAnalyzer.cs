@@ -4,11 +4,18 @@ using EfCoreMcp.Core.Domain;
 
 namespace EfCoreMcp.Core.Services;
 
+/// <summary>
+/// Provides methods to analyze relationships between entities in a model.
+/// </summary>
 public sealed class RelationshipAnalyzer(IModelIntrospector introspector) : IRelationshipAnalyzer
 {
     private const int MaxPathFindingDepth = 50;
     private const int MaxPathsToExplore = 1000;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RelationshipAnalyzer"/> class with the specified model introspector.
+    /// </summary>
+    /// <param name="introspector">The model introspector used to retrieve the model descriptor.</param>
     public RelationshipPath ExplainRelationship(string fromEntity, string toEntity)
     {
         ArgumentException.ThrowIfNullOrEmpty(fromEntity);
@@ -27,6 +34,10 @@ public sealed class RelationshipAnalyzer(IModelIntrospector introspector) : IRel
         return new RelationshipPath(from.Name, to.Name, true, hops, sb.ToString());
     }
 
+    /// <summary>
+    /// Gets the dependency order of entities based on foreign key dependencies.
+    /// </summary>
+    /// <returns>A <see cref="DependencyOrder"/> containing the insertion order, deletion order, cyclic entities, and detected cycles.</returns>
     public DependencyOrder GetDependencyOrder()
     {
         ArgumentNullException.ThrowIfNull(introspector);
