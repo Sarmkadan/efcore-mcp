@@ -79,6 +79,26 @@ public class RelationshipAnalyzerTests : IEquatable<RelationshipAnalyzerTests>, 
         Assert.True(order.InsertOrder.IndexOf("Customer") < order.InsertOrder.IndexOf("Sale"));
         Assert.Equal(order.InsertOrder.Reverse(), order.DeleteOrder);
     }
+
+    public bool Equals(RelationshipAnalyzerTests? other)
+    {
+        if (ReferenceEquals(this, other))
+            return true;
+        if (other is null)
+            return false;
+        return ReferenceEquals(_provider, other._provider) &&
+               ReferenceEquals(_analyzer, other._analyzer);
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as RelationshipAnalyzerTests);
+
+    public override int GetHashCode() => HashCode.Combine(_provider, _analyzer);
+
+    public static bool operator ==(RelationshipAnalyzerTests? left, RelationshipAnalyzerTests? right) =>
+        EqualityComparer<RelationshipAnalyzerTests>.Default.Equals(left, right);
+
+    public static bool operator !=(RelationshipAnalyzerTests? left, RelationshipAnalyzerTests? right) =>
+        !(left == right);
 }
 
 internal static class ReadOnlyListExtensions
