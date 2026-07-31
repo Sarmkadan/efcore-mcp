@@ -6,7 +6,7 @@ namespace EfCoreMcp.Tests;
 /// <summary>
 /// Tests for the <see cref="RelationshipAnalyzer"/> class.
 /// </summary>
-public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
+public class RelationshipAnalyzerTests : IEquatable<RelationshipAnalyzerTests>, IRelationshipAnalyzerTests
 {
     private readonly AnalyzerContextProvider _provider = new();
     private readonly RelationshipAnalyzer _analyzer;
