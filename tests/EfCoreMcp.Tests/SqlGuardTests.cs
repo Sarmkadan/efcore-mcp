@@ -4,8 +4,25 @@ using Xunit;
 
 namespace EfCoreMcp.Tests;
 
-public class SqlGuardTests
+public class SqlGuardTests : IEquatable<SqlGuardTests>
 {
+    public bool Equals(SqlGuardTests? other)
+    {
+        if (ReferenceEquals(this, other)) return true;
+        if (other is null) return false;
+        return ReferenceEquals(this, other);
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as SqlGuardTests);
+
+    public override int GetHashCode() => base.GetHashCode();
+
+    public static bool operator ==(SqlGuardTests? left, SqlGuardTests? right) =>
+        ReferenceEquals(left, right);
+
+    public static bool operator !=(SqlGuardTests? left, SqlGuardTests? right) =>
+        !ReferenceEquals(left, right);
+
     [Theory]
     [InlineData("SELECT 1")]
     [InlineData("select id, name from users")]
