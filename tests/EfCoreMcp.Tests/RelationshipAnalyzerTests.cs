@@ -3,6 +3,9 @@ using Xunit;
 
 namespace EfCoreMcp.Tests;
 
+/// <summary>
+/// Tests for the <see cref="RelationshipAnalyzer"/> class.
+/// </summary>
 public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
 {
     private readonly AnalyzerContextProvider _provider = new();
@@ -14,6 +17,7 @@ public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
     public void Dispose() => _provider.Dispose();
 
     [Fact]
+    /// <summary>Verifies that a direct foreign key relationship is reported as one hop.</summary>
     public void ExplainRelationship_DirectForeignKey_IsOneHop()
     {
         var path = _analyzer.ExplainRelationship("Store", "Sale");
@@ -27,6 +31,7 @@ public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
     }
 
     [Fact]
+    /// <summary>Verifies that a transitive relationship via a join entity is correctly reported with two hops.</summary>
     public void ExplainRelationship_TransitivePath_GoesThroughJoinEntity()
     {
         var path = _analyzer.ExplainRelationship("Store", "Customer");
@@ -37,6 +42,7 @@ public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
     }
 
     [Fact]
+    /// <summary>Verifies that the relationship from an entity to itself has zero hops.</summary>
     public void ExplainRelationship_SameEntity_IsZeroHops()
     {
         var path = _analyzer.ExplainRelationship("Store", "Store");
@@ -45,6 +51,7 @@ public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
     }
 
     [Fact]
+    /// <summary>Verifies that entity names are resolved case-insensitively and by table name.</summary>
     public void ExplainRelationship_ResolvesCaseInsensitiveAndTableNames()
     {
         var path = _analyzer.ExplainRelationship("store", "Sales");
@@ -54,6 +61,7 @@ public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
     }
 
     [Fact]
+    /// <summary>Verifies that an unknown entity throws an exception with a list of available entities.</summary>
     public void ExplainRelationship_UnknownEntity_ThrowsWithAvailableNames()
     {
         var ex = Assert.Throws<InvalidOperationException>(() => _analyzer.ExplainRelationship("Store", "Nope"));
@@ -61,6 +69,7 @@ public class RelationshipAnalyzerTests : IRelationshipAnalyzerTests
     }
 
     [Fact]
+    /// <summary>Verifies that the dependency order places principals before dependents and that delete order is the reverse.</summary>
     public void GetDependencyOrder_PrincipalsComeBeforeDependents()
     {
         var order = _analyzer.GetDependencyOrder();
