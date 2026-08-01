@@ -1,3 +1,4 @@
+using System;
 using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
 using EfCoreMcp.Core.Services;
@@ -6,11 +7,62 @@ using Xunit;
 
 namespace EfCoreMcp.Tests;
 
-public class Store
+public class Store : IEquatable<Store>
 {
     public int Id { get; set; }
     public string Name { get; set; } = "";
     public List<Sale> Sales { get; set; } = [];
+
+    public bool Equals(Store? other)
+    {
+        if (ReferenceEquals(this, other))
+            return true;
+        if (other is null)
+            return false;
+
+        if (Id != other.Id)
+            return false;
+        if (!string.Equals(Name, other.Name, StringComparison.Ordinal))
+            return false;
+
+        if (Sales == null && other.Sales == null)
+            return true;
+        if (Sales == null || other.Sales == null)
+            return false;
+        if (Sales.Count != other.Sales.Count)
+            return false;
+
+        for (int i = 0; i < Sales.Count; i++)
+        {
+            var s1 = Sales[i];
+            var s2 = other.Sales[i];
+            if (s1.Id != s2.Id || s1.Amount != s2.Amount)
+                return false;
+        }
+
+        return true;
+    }
+
+    public override bool Equals(object? obj) => Equals(obj as Store);
+
+    public override int GetHashCode()
+    {
+        // Combine primary scalar properties and a simple hash of the sales collection
+        var hash = new HashCode();
+        hash.Add(Id);
+        hash.Add(Name);
+        hash.Add(Sales?.Count ?? 0);
+        foreach (var sale in Sales)
+        {
+            hash.Add(sale.Id);
+            hash.Add(sale.Amount);
+        }
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(Store? left, Store? right) => Equals(left, right);
+
+    public static bool operator !=(Store? left, Store? right) => !Equals(left, right);
 }
 
 public class Customer
