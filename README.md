@@ -193,3 +193,45 @@ The solution splits into `EfCoreMcp.Core` (services, no MCP dependency, fully un
 ## License
 
 MIT
+
+## RelationshipAnalyzerTests
+
+The `RelationshipAnalyzerTests` class contains a suite of unit tests that verify the behavior of the `RelationshipAnalyzer` service. It checks direct and transitive foreign‑key paths, case‑insensitive name resolution, handling of self‑relationships, and the correct ordering of entities for insert and delete operations. The class also provides small helper methods used by the tests for list indexing and reversal.
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using EfCoreMcp.Core.Services;
+using EfCoreMcp.Tests;
+
+namespace ExampleUsage
+{
+    class Program
+    {
+        static void Main()
+        {
+            // Create the test fixture (it builds its own in‑memory model)
+            var tests = new RelationshipAnalyzerTests();
+
+            // Run a few of the verification methods directly
+            tests.ExplainRelationship_DirectForeignKey_IsOneHop();
+            tests.ExplainRelationship_TransitivePath_GoesThroughJoinEntity();
+            tests.ExplainRelationship_SameEntity_IsZeroHops();
+
+            // Use the helper extensions that the test class defines
+            var names = new List<string> { "Store", "Sale", "Customer" };
+            int index = ReadOnlyListExtensions.IndexOf(names, "Sale");
+            IEnumerable<string> reversed = ReadOnlyListExtensions.Reverse(names);
+
+            Console.WriteLine($\"Index of 'Sale': {index}\");
+            Console.WriteLine(\"Reversed list: \" + string.Join(\", \", reversed));
+
+            // Clean up the in‑memory provider
+            tests.Dispose();
+        }
+    }
+}
+```
+
+This example demonstrates how the public members of `RelationshipAnalyzerTests` can be instantiated and invoked, and how the static helper methods `IndexOf` and `Reverse` can be used to work with read‑only lists in the same test assembly.
