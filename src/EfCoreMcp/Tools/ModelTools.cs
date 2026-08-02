@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Collections.Generic;
 using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
 using ModelContextProtocol.Server;
@@ -8,39 +9,39 @@ namespace EfCoreMcp.Tools;
 [McpServerToolType]
 public sealed class ModelTools(IModelIntrospector introspector, ISchemaExplainer explainer, IDbContextProvider contextProvider) : IModelTools
 {
-    [McpServerTool(Name = "context_info"),
-    Description("Get information about the loaded DbContext: type, provider, database, connectivity.")]
+    [McpServerTool(Name = ModelToolsConstants.ContextInfoName),
+    Description(ModelToolsConstants.ContextInfoDescription)]
     public ContextInfo ContextInfo() => contextProvider.GetContextInfo();
 
-    [McpServerTool(Name = "list_entities"),
-    Description("List the names of all entity types in the EF Core model.")]
+    [McpServerTool(Name = ModelToolsConstants.ListEntitiesName),
+    Description(ModelToolsConstants.ListEntitiesDescription)]
     public IReadOnlyList<string> ListEntities() => introspector.ListEntityNames();
 
-    [McpServerTool(Name = "describe_model"),
-    Description("Get the full EF Core model: every entity with properties, keys, foreign keys, navigations and indexes.")]
+    [McpServerTool(Name = ModelToolsConstants.DescribeModelName),
+    Description(ModelToolsConstants.DescribeModelDescription)]
     public ModelDescriptor DescribeModel() => introspector.DescribeModel();
 
-    [McpServerTool(Name = "describe_entity"),
-    Description("Get the full structure of a single entity type by name (CLR name, short name or table name).")]
+    [McpServerTool(Name = ModelToolsConstants.DescribeEntityName),
+    Description(ModelToolsConstants.DescribeEntityDescription)]
     public EntityDescriptor DescribeEntity(
-        [Description("Entity name, e.g. 'Order' or 'MyApp.Domain.Order' or table name")]
+        [Description(ModelToolsConstants.DescribeEntityParameterDescription)]
         string entityName) => introspector.DescribeEntity(entityName)
         ?? throw new InvalidOperationException(introspector.EntityNotFoundMessage(entityName));
 
-    [McpServerTool(Name = "explain_schema"),
-    Description("Render a human-readable markdown explanation of the whole model.")]
+    [McpServerTool(Name = ModelToolsConstants.ExplainSchemaName),
+    Description(ModelToolsConstants.ExplainSchemaDescription)]
     public string ExplainSchema() => explainer.ExplainModel();
 
-    [McpServerTool(Name = "explain_entity"),
-    Description("Render a human-readable markdown explanation of one entity.")]
-    public string ExplainEntity([Description("Entity name")] string entityName) => explainer.ExplainEntity(entityName);
+    [McpServerTool(Name = ModelToolsConstants.ExplainEntityName),
+    Description(ModelToolsConstants.ExplainEntityDescription)]
+    public string ExplainEntity([Description(ModelToolsConstants.EntityNameParameterDescription)] string entityName) => explainer.ExplainEntity(entityName);
 
-    [McpServerTool(Name = "relationship_graph"),
-    Description("Render the entity relationships as a Mermaid erDiagram.")]
+    [McpServerTool(Name = ModelToolsConstants.RelationshipGraphName),
+    Description(ModelToolsConstants.RelationshipGraphDescription)]
     public string RelationshipGraph() => explainer.RenderRelationshipGraph();
 
-    [McpServerTool(Name = "list_contexts"),
-    Description("List all available DbContext types in the loaded assembly.")]
+    [McpServerTool(Name = ModelToolsConstants.ListContextsName),
+    Description(ModelToolsConstants.ListContextsDescription)]
     public IReadOnlyList<string> ListContexts()
     {
         var info = contextProvider.GetContextInfo();
