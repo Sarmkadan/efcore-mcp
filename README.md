@@ -30,7 +30,7 @@ Point the server at your compiled context assembly and register it in your MCP c
 
 `--context` is optional when the assembly contains a single `DbContext`. Use `--connection` to override the connection string and `--provider` to force a provider. The same values can come from `EFCORE_MCP_ASSEMBLY`, `EFCORE_MCP_CONTEXT` and `EFCORE_MCP_CONNECTION`. The server runs over stdio.
 
-### How the context is created
+## How the context is created
 
 The server loads your assembly into an isolated `AssemblyLoadContext` (sibling DLLs next to the assembly are resolved automatically), then instantiates the context via:
 
@@ -50,6 +50,28 @@ public class MyContextFactory : IDesignTimeDbContextFactory<MyDbContext>
 ```
 
 `--connection` overrides whatever connection string the factory or `OnConfiguring` set, so you can point the same model at a staging copy of the database.
+
+## ModelIntrospector
+
+The `ModelIntrospector` service handles the reflection and analysis of an EF Core `DbContext`, converting its complex metadata into structured `ModelDescriptor` and `EntityDescriptor` objects. It is the primary engine for discovering the model's structure, identifying entities, and providing intelligent error messages when entity lookups fail.
+
+```csharp
+// Assuming an IDbContextProvider implementation is available
+var introspector = new ModelIntrospector(contextProvider);
+
+// Retrieve all entity names in the model
+var names = introspector.ListEntityNames();
+
+// Look up a specific entity
+var entity = introspector.DescribeEntity("Customer");
+if (entity != null) {
+    Console.WriteLine($"Entity: {entity.Name}, Table: {entity.TableName}");
+} else {
+    // Generates a helpful error message with suggestions
+    Console.WriteLine(introspector.EntityNotFoundMessage("Customer"));
+}
+```
+
 
 ## Tools
 
