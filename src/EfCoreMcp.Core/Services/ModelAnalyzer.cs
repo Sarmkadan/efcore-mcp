@@ -1,5 +1,6 @@
 using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
+using static EfCoreMcp.Core.Services.ModelAnalyzerConstants;
 
 namespace EfCoreMcp.Core.Services;
 
@@ -51,7 +52,7 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
     {
         if (entity.PrimaryKey is null && !entity.IsOwned)
             findings.Add(new ModelFinding(
-                "warning", "EFMCP001", entity.Name, null,
+                SeverityWarning, CodeEfMcp001, entity.Name, null,
                 "Entity has no primary key (keyless entity type).",
                 "Keyless entities cannot be tracked, updated or used as principals. If this is intentional (view/raw-SQL projection), ignore; otherwise add HasKey()."));
     }
@@ -60,9 +61,9 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
     {
         foreach (var p in entity.Properties)
         {
-            if (p.ClrType is "String" && p.MaxLength is null && !p.IsPrimaryKey && !p.IsForeignKey)
+            if (p.ClrType is ClrTypeString && p.MaxLength is null && !p.IsPrimaryKey && !p.IsForeignKey)
                 findings.Add(new ModelFinding(
-                    "info", "EFMCP002", entity.Name, p.Name,
+                    SeverityInfo, CodeEfMcp002, entity.Name, p.Name,
                     $"String property '{p.Name}' has no max length; most providers map it to an unbounded column (nvarchar(max)/text).",
                     "Set HasMaxLength(n) where a bound is known - unbounded columns block index creation on some providers and hide data-quality issues."));
         }
@@ -72,9 +73,9 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
     {
         foreach (var p in entity.Properties)
         {
-            if (p.ClrType is "Decimal" or "Decimal?" && p.Precision is null)
+            if (p.ClrType is ClrTypeDecimal or ClrTypeDecimalNullable && p.Precision is null)
                 findings.Add(new ModelFinding(
-                    "warning", "EFMCP003", entity.Name, p.Name,
+                    SeverityWarning, CodeEfMcp003, entity.Name, p.Name,
                     $"Decimal property '{p.Name}' has no explicit precision/column type; the provider default may silently truncate values.",
                     "Configure HasPrecision(p, s) or HasColumnType(\"decimal(p,s)\") to make rounding behaviour explicit."));
         }
@@ -84,14 +85,14 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
     {
         foreach (var fk in entity.ForeignKeys)
         {
-            if (!fk.IsRequired && fk.DeleteBehavior == "Cascade")
+            if (!fk.IsRequired && fk.DeleteBehavior == DeleteBehaviorCascade)
                 findings.Add(new ModelFinding(
-                    "warning", "EFMCP004", entity.Name, string.Join(", ", fk.Properties),
+                    SeverityWarning, CodeEfMcp004, entity.Name, string.Join(", ", fk.Properties),
                     $"Optional relationship to {fk.PrincipalEntity} is configured with cascade delete.",
                     "Deleting the principal will delete dependents that could have survived with a NULL FK. Use DeleteBehavior.SetNull or ClientSetNull unless deletion is intended."));
             if (!IsCoveredByIndexOrKey(entity, fk.Properties))
                 findings.Add(new ModelFinding(
-                    "info", "EFMCP005", entity.Name, string.Join(", ", fk.Properties),
+                    SeverityInfo, CodeEfMcp005, entity.Name, string.Join(", ", fk.Properties),
                     $"Foreign key to {fk.PrincipalEntity} ({string.Join(", ", fk.Properties)}) is not covered by any index.",
                     "EF Core creates FK indexes by convention; a missing one means it was removed or the FK is composite with a reordered index. Add HasIndex over the FK columns."));
         }
@@ -103,7 +104,7 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
         {
             if (nav.IsCollection && nav.InverseName is null)
                 findings.Add(new ModelFinding(
-                    "info", "EFMCP006", entity.Name, nav.Name,
+                    SeverityInfo, CodeEfMcp006, entity.Name, nav.Name,
                     $"Collection navigation '{nav.Name}' to {nav.TargetEntity} has no inverse reference navigation.",
                     "Without an inverse, loading dependents and fixing up the relationship requires the FK value; adding the reference navigation makes Include() chains and change tracking clearer."));
         }
@@ -115,7 +116,7 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
         {
             if (p.IsShadow && p.IsForeignKey)
                 findings.Add(new ModelFinding(
-                    "info", "EFMCP007", entity.Name, p.Name,
+                    SeverityInfo, CodeEfMcp007, entity.Name, p.Name,
                     $"Foreign key '{p.Name}' is a shadow property - the relationship is navigation-only.",
                     "Shadow FKs work but cannot be set without loading the principal. Map an explicit FK property to allow setting the relationship by id."));
         }
@@ -126,13 +127,13 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
         foreach (var entity in model.Entities)
         {
             var cascadePrincipals = entity.ForeignKeys
-                .Where(fk => fk.DeleteBehavior == "Cascade")
+                .Where(fk => fk.DeleteBehavior == DeleteBehaviorCascade)
                 .Select(fk => fk.PrincipalEntity)
                 .Distinct()
                 .ToList();
             if (cascadePrincipals.Count > 1)
                 findings.Add(new ModelFinding(
-                    "warning", "EFMCP008", entity.Name, null,
+                    SeverityWarning, CodeEfMcp008, entity.Name, null,
                     $"Entity is a cascade-delete target from multiple principals: {string.Join(", ", cascadePrincipals)}.",
                     "SQL Server rejects schemas with multiple cascade paths onto one table ('may cause cycles or multiple cascade paths'). Set one side to Restrict/NoAction and handle deletion in code."));
         }
@@ -150,8 +151,8 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
 
     private static int SeverityRank(string severity) => severity switch
     {
-        "error" => 0,
-        "warning" => 1,
+        SeverityError => 0,
+        SeverityWarning => 1,
         _ => 2
     };
 }
