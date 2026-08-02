@@ -235,3 +235,32 @@ namespace ExampleUsage
 ```
 
 This example demonstrates how the public members of `RelationshipAnalyzerTests` can be instantiated and invoked, and how the static helper methods `IndexOf` and `Reverse` can be used to work with read‑only lists in the same test assembly.
+
+## SqlGuardTests
+
+`SqlGuardTests` verifies the robustness of the SQL‑guarding logic that protects the `query_sql` tool from unsafe statements. It ensures that only read‑only `SELECT` queries are accepted while rejecting mutations, multiple statements, empty input, and other disallowed patterns, and it checks that comments and string literals do not bypass these safeguards.
+
+```csharp
+using EfCoreMcp.Tests;
+
+var sqlGuardTests = new SqlGuardTests();
+
+// Run the same checks that the unit‑test suite performs.
+sqlGuardTests.Validate_AllowsReadOnlyQueries();
+sqlGuardTests.Validate_RejectsMutations();
+sqlGuardTests.Validate_RejectsSneakyWrites();
+sqlGuardTests.Validate_RejectsMultipleStatements();
+sqlGuardTests.Validate_RejectsEmptyInput();
+sqlGuardTests.Validate_RejectsNonSelectStatements();
+sqlGuardTests.Validate_IgnoresKeywordsInsideStringLiterals();
+sqlGuardTests.Validate_IgnoresKeywordsInsideEscapedStringLiterals();
+sqlGuardTests.Validate_StripsLineCommentsBeforeChecking();
+sqlGuardTests.Validate_StripsBlockCommentsBeforeChecking();
+sqlGuardTests.Validate_DoesNotLetCommentsHideMutations();
+sqlGuardTests.Validate_ReportsOffendingKeyword();
+sqlGuardTests.Validate_DoesNotFlagKeywordsAsSubstringsOfIdentifiers();
+sqlGuardTests.ValidateOrThrow_ThrowsWithReasonOnViolation();
+sqlGuardTests.ValidateOrThrow_PassesValidQuery();
+```
+
+These calls demonstrate how the guard validates queries and reports violations, making it easy to integrate the same safety checks into custom tooling.````````
