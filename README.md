@@ -1,4 +1,4 @@
-# efcore-mcp
+// # efcore-mcp
 
 An MCP server that lets any MCP client (Claude Code, Cursor, or anything else that speaks MCP) inspect, query and analyze your EF Core `DbContext` - model, relationships, data, migrations and design pitfalls - straight from the compiled assembly.
 
@@ -110,6 +110,40 @@ if (entity != null) {
 | --- | --- |
 | `migration_status` | Applied and pending migrations, plus model drift detection. |
 | `diff_pending_changes` | Diff the model against the last migration snapshot. |
+
+## AnalysisTools
+
+The `AnalysisTools` class aggregates the core analysis services into a single convenient façade. It exposes methods to validate the model, suggest missing indexes, explain relationships between entities, and retrieve a safe dependency order for inserts and deletes.
+
+```csharp
+using EfCoreMcp.Core.Services;
+using EfCoreMcp.Core.Domain;
+
+// Set up a model introspector (you need an AnalyzerContextProvider or similar)
+var provider = new AnalyzerContextProvider();
+var introspector = new ModelIntrospector(provider);
+
+// Build the individual analyzers
+var modelAnalyzer = new ModelAnalyzer(introspector);
+var relationshipAnalyzer = new RelationshipAnalyzer(introspector);
+
+// Create the combined tool
+var tools = new AnalysisTools(modelAnalyzer, relationshipAnalyzer);
+
+// Validate the model
+var validationReport = tools.ValidateModel();
+
+// Suggest indexes
+var indexSuggestions = tools.SuggestIndexes();
+
+// Explain a relationship
+var relationship = tools.ExplainRelationship("Store", "Customer");
+
+// Get dependency order
+var order = tools.DependencyOrder();
+```
+
+Make sure the appropriate `using` directives are present and that the `AnalyzerContextProvider` (or any `IDbContextProvider`) is correctly configured for your project.
 
 ## Model validation rules
 
