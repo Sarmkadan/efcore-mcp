@@ -89,7 +89,7 @@ public class AnalyzerContext : DbContext
     public DbSet<Sale> Sales => Set<Sale>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder options) =>
-        options.UseSqlite("DataSource=:memory:");
+        options.UseSqlite($"DataSource={StoreConstants.DataSource}");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -141,7 +141,7 @@ public class ModelAnalyzerTests : IDisposable
     [Fact]
     public void ValidateModel_FlagsUnboundedStrings()
     {
-        var findings = _analyzer.ValidateModel().Findings.Where(f => f.Code == "EFMCP002").ToList();
+        var findings = _analyzer.ValidateModel().Findings.Where(f => f.Code == StoreConstants.EfMcp002Code).ToList();
         Assert.Contains(findings, f => f is { Entity: "Store", Property: "Name" });
         Assert.Contains(findings, f => f is { Entity: "Customer", Property: "Notes" });
     }
@@ -149,10 +149,10 @@ public class ModelAnalyzerTests : IDisposable
     [Fact]
     public void ValidateModel_FlagsDecimalWithoutPrecision()
     {
-        var finding = Assert.Single(_analyzer.ValidateModel().Findings, f => f.Code == "EFMCP003");
+        var finding = Assert.Single(_analyzer.ValidateModel().Findings, f => f.Code == StoreConstants.EfMcp003Code);
         Assert.Equal("Sale", finding.Entity);
         Assert.Equal("Amount", finding.Property);
-        Assert.Equal("warning", finding.Severity);
+        Assert.Equal(StoreConstants.WarningSeverity, finding.Severity);
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class ModelAnalyzerTests : IDisposable
         // EF conventions always (re)create FK indexes on real models, so exercise the
         // descriptor-based check directly with a model whose FK index was dropped.
         var analyzer = new ModelAnalyzer(new StubIntrospector(UnindexedFkModel()));
-        var finding = Assert.Single(analyzer.ValidateModel().Findings, f => f.Code == "EFMCP005");
+        var finding = Assert.Single(analyzer.ValidateModel().Findings, f => f.Code == StoreConstants.EfMcp005Code);
         Assert.Equal("Order", finding.Entity);
         Assert.Equal("CustomerId", finding.Property);
     }
@@ -169,7 +169,7 @@ public class ModelAnalyzerTests : IDisposable
     [Fact]
     public void ValidateModel_FlagsMultipleCascadePaths()
     {
-        var finding = Assert.Single(_analyzer.ValidateModel().Findings, f => f.Code == "EFMCP008");
+        var finding = Assert.Single(_analyzer.ValidateModel().Findings, f => f.Code == StoreConstants.EfMcp008Code);
         Assert.Equal("Sale", finding.Entity);
         Assert.Contains("Store", finding.Message);
         Assert.Contains("Customer", finding.Message);
@@ -179,8 +179,8 @@ public class ModelAnalyzerTests : IDisposable
     public void ValidateModel_OrdersWarningsBeforeInfo()
     {
         var findings = _analyzer.ValidateModel().Findings;
-        var lastWarning = findings.ToList().FindLastIndex(f => f.Severity == "warning");
-        var firstInfo = findings.ToList().FindIndex(f => f.Severity == "info");
+        var lastWarning = findings.ToList().FindLastIndex(f => f.Severity == StoreConstants.WarningSeverity);
+        var firstInfo = findings.ToList().FindIndex(f => f.Severity == StoreConstants.InfoSeverity);
         Assert.True(firstInfo == -1 || lastWarning < firstInfo);
     }
 
