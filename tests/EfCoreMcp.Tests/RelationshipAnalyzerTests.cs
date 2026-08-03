@@ -20,11 +20,11 @@ public class RelationshipAnalyzerTests : IEquatable<RelationshipAnalyzerTests>, 
     /// <summary>Verifies that a direct foreign key relationship is reported as one hop.</summary>
     public void ExplainRelationship_DirectForeignKey_IsOneHop()
     {
-        var path = _analyzer.ExplainRelationship("Store", "Sale");
+        var path = _analyzer.ExplainRelationship(RelationshipAnalyzerTestsConstants.Store, RelationshipAnalyzerTestsConstants.Sale);
         Assert.True(path.Found);
         var hop = Assert.Single(path.Hops);
-        Assert.Equal("Store", hop.FromEntity);
-        Assert.Equal("Sale", hop.ToEntity);
+        Assert.Equal(RelationshipAnalyzerTestsConstants.Store, hop.FromEntity);
+        Assert.Equal(RelationshipAnalyzerTestsConstants.Sale, hop.ToEntity);
         Assert.Equal(["StoreId"], hop.ForeignKeyProperties);
         Assert.Equal("one-to-many", hop.Cardinality);
         Assert.Equal("Cascade", hop.DeleteBehavior);
@@ -34,18 +34,18 @@ public class RelationshipAnalyzerTests : IEquatable<RelationshipAnalyzerTests>, 
     /// <summary>Verifies that a transitive relationship via a join entity is correctly reported with two hops.</summary>
     public void ExplainRelationship_TransitivePath_GoesThroughJoinEntity()
     {
-        var path = _analyzer.ExplainRelationship("Store", "Customer");
+        var path = _analyzer.ExplainRelationship(RelationshipAnalyzerTestsConstants.Store, RelationshipAnalyzerTestsConstants.Customer);
         Assert.True(path.Found);
         Assert.Equal(2, path.Hops.Count);
-        Assert.Equal("Sale", path.Hops[0].ToEntity);
-        Assert.Equal("Customer", path.Hops[1].ToEntity);
+        Assert.Equal(RelationshipAnalyzerTestsConstants.Sale, path.Hops[0].ToEntity);
+        Assert.Equal(RelationshipAnalyzerTestsConstants.Customer, path.Hops[1].ToEntity);
     }
 
     [Fact]
     /// <summary>Verifies that the relationship from an entity to itself has zero hops.</summary>
     public void ExplainRelationship_SameEntity_IsZeroHops()
     {
-        var path = _analyzer.ExplainRelationship("Store", "Store");
+        var path = _analyzer.ExplainRelationship(RelationshipAnalyzerTestsConstants.Store, RelationshipAnalyzerTestsConstants.Store);
         Assert.True(path.Found);
         Assert.Empty(path.Hops);
     }
@@ -56,15 +56,15 @@ public class RelationshipAnalyzerTests : IEquatable<RelationshipAnalyzerTests>, 
     {
         var path = _analyzer.ExplainRelationship("store", "Sales");
         Assert.True(path.Found);
-        Assert.Equal("Store", path.FromEntity);
-        Assert.Equal("Sale", path.ToEntity);
+        Assert.Equal(RelationshipAnalyzerTestsConstants.Store, path.FromEntity);
+        Assert.Equal(RelationshipAnalyzerTestsConstants.Sale, path.ToEntity);
     }
 
     [Fact]
     /// <summary>Verifies that an unknown entity throws an exception with a list of available entities.</summary>
     public void ExplainRelationship_UnknownEntity_ThrowsWithAvailableNames()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => _analyzer.ExplainRelationship("Store", "Nope"));
+        var ex = Assert.Throws<InvalidOperationException>(() => _analyzer.ExplainRelationship(RelationshipAnalyzerTestsConstants.Store, "Nope"));
         Assert.Contains("Available", ex.Message);
     }
 
@@ -75,8 +75,8 @@ public class RelationshipAnalyzerTests : IEquatable<RelationshipAnalyzerTests>, 
         var order = _analyzer.GetDependencyOrder();
         Assert.Empty(order.CyclicEntities);
         Assert.Empty(order.DetectedCycles);
-        Assert.True(order.InsertOrder.IndexOf("Store") < order.InsertOrder.IndexOf("Sale"));
-        Assert.True(order.InsertOrder.IndexOf("Customer") < order.InsertOrder.IndexOf("Sale"));
+        Assert.True(order.InsertOrder.IndexOf(RelationshipAnalyzerTestsConstants.Store) < order.InsertOrder.IndexOf(RelationshipAnalyzerTestsConstants.Sale));
+        Assert.True(order.InsertOrder.IndexOf(RelationshipAnalyzerTestsConstants.Customer) < order.InsertOrder.IndexOf(RelationshipAnalyzerTestsConstants.Sale));
         Assert.Equal(order.InsertOrder.Reverse(), order.DeleteOrder);
     }
 
