@@ -67,4 +67,87 @@ public static class BlogDemo
 }
 ```
 
-The example demonstrates constructing a `Blog`, populating its `Posts`, fixing the navigation property, and using the `ModelIntrospectorTests` helper to obtain `ContextInfo` from the underlying `DbContext`. All members used (`Id`, `Title`, `Posts`, `Id`, `Body`, `BlogId`, `Blog`, `GetContextInfo`, `Dispose`) are part of the public API.
+## Store
+
+`Store` is a test entity that represents a retail location. It holds basic identifying information (`Id`, `Name`) and a collection of related `Sale` records. The type also participates in the test harness that can spin up an in‑memory `DbContext`, expose model metadata, and clean up resources.
+
+```csharp
+using System;
+using System.Collections.Generic;
+using EfCoreMcp.Tests; // Namespace where Store, Sale, Customer, and ModelAnalyzerTests live
+using Microsoft.EntityFrameworkCore;
+
+public static class StoreDemo
+{
+    public static void Main()
+    {
+        // Create a store with a couple of sales
+        var store = new Store
+        {
+            Id = 1,
+            Name = "Main Street Store",
+            Sales = new List<Sale>()
+        };
+
+        var customer = new Customer { Id = 1, Name = "Alice" };
+
+        var sale1 = new Sale
+        {
+            Id = 1,
+            Amount = 99.95m,
+            StoreId = store.Id,
+            Store = store,
+            CustomerId = customer.Id,
+            Customer = customer
+        };
+
+        var sale2 = new Sale
+        {
+            Id = 2,
+            Amount = 45.00m,
+            StoreId = store.Id,
+            Store = store,
+            CustomerId = customer.Id,
+            Customer = customer,
+            Notes = "First purchase"
+        };
+
+        store.Sales.Add(sale1);
+        store.Sales.Add(sale2);
+
+        // Use the test harness to obtain a context and model information
+        using var analyzer = new ModelAnalyzerTests();
+
+        // Get the underlying DbContext (in‑memory for tests)
+        DbContext ctx = analyzer.GetContext();
+
+        // Retrieve high‑level context information
+        ContextInfo ctxInfo = analyzer.GetContextInfo();
+        Console.WriteLine($"Context: {ctxInfo.ContextName}, Provider: {ctxInfo.ProviderName}");
+
+        // Describe the whole model
+        var modelDescriptor = analyzer.DescribeModel();
+        Console.WriteLine($"Model has {modelDescriptor.EntityCount} entities.");
+
+        // List entity names in the model
+        IReadOnlyList<string> entityNames = analyzer.ListEntityNames();
+        Console.WriteLine("Entities in model: " + string.Join(", ", entityNames));
+
+        // Attempt to describe a specific entity (Store)
+        var storeDescriptor = analyzer.DescribeEntity?.Invoke(typeof(Store));
+        if (storeDescriptor != null)
+        {
+            Console.WriteLine($"Store entity has {storeDescriptor.PropertyCount} properties.");
+        }
+        else
+        {
+            Console.WriteLine(analyzer.EntityNotFoundMessage);
+        }
+
+        // Clean up test resources
+        analyzer.Dispose();
+    }
+}
+```
+
+The example demonstrates creating a `Store`, adding related `Sale` objects, and using the `ModelAnalyzerTests` helper to access the in‑memory `DbContext`, retrieve model metadata, list entity names, and safely dispose of resources. All members used (`Id`, `Name`, `Sales`, `Amount`, `StoreId`, `Store`, `CustomerId`, `Customer`, `Notes`, `GetContext`, `GetContextInfo`, `Dispose`, `DescribeModel`, `DescribeEntity`, `ListEntityNames`, `EntityNotFoundMessage`, `ModelAnalyzerTests`) are part of the public API.
