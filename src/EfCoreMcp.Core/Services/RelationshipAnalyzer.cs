@@ -7,15 +7,22 @@ namespace EfCoreMcp.Core.Services;
 /// <summary>
 /// Provides methods to analyze relationships between entities in a model.
 /// </summary>
-public sealed class RelationshipAnalyzer(IModelIntrospector introspector) : IRelationshipAnalyzer
+public sealed class RelationshipAnalyzer : IRelationshipAnalyzer
 {
     private const int MaxPathFindingDepth = 50;
     private const int MaxPathsToExplore = 1000;
+    private readonly IModelIntrospector introspector;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RelationshipAnalyzer"/> class with the specified model introspector.
     /// </summary>
     /// <param name="introspector">The model introspector used to retrieve the model descriptor.</param>
+    public RelationshipAnalyzer(IModelIntrospector introspector)
+    {
+        ArgumentNullException.ThrowIfNull(introspector);
+        this.introspector = introspector;
+    }
+
     public RelationshipPath ExplainRelationship(string fromEntity, string toEntity)
     {
         ArgumentException.ThrowIfNullOrEmpty(fromEntity);
