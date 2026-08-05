@@ -9,10 +9,26 @@ namespace EfCoreMcp.Tests;
 
 public class Store : IEquatable<Store>
 {
+    /// <summary>
+    /// Gets or sets the identifier of the store.
+    /// </summary>
     public int Id { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the store.
+    /// </summary>
     public string Name { get; set; } = "";
+
+    /// <summary>
+    /// Gets or sets the collection of sales associated with the store.
+    /// </summary>
     public List<Sale> Sales { get; set; } = [];
 
+    /// <summary>
+    /// Determines whether the specified <see cref="Store"/> is equal to the current <see cref="Store"/> instance.
+    /// </summary>
+    /// <param name="other">The other <see cref="Store"/> to compare.</param>
+    /// <returns><c>true</c> if the stores are equal; otherwise, <c>false</c>.</returns>
     public bool Equals(Store? other)
     {
         if (ReferenceEquals(this, other))
@@ -43,8 +59,17 @@ public class Store : IEquatable<Store>
         return true;
     }
 
+    /// <summary>
+    /// Determines whether the specified object is equal to the current <see cref="Store"/> instance.
+    /// </summary>
+    /// <param name="obj">The object to compare with the current store.</param>
+    /// <returns><c>true</c> if the specified object is a <see cref="Store"/> and is equal to the current store; otherwise, <c>false</c>.</returns>
     public override bool Equals(object? obj) => Equals(obj as Store);
 
+    /// <summary>
+    /// Returns a hash code for the current <see cref="Store"/> instance.
+    /// </summary>
+    /// <returns>An integer hash code.</returns>
     public override int GetHashCode()
     {
         // Combine primary scalar properties and a simple hash of the sales collection
@@ -60,8 +85,20 @@ public class Store : IEquatable<Store>
         return hash.ToHashCode();
     }
 
+    /// <summary>
+    /// Determines whether two <see cref="Store"/> instances are equal.
+    /// </summary>
+    /// <param name="left">The first <see cref="Store"/> to compare.</param>
+    /// <param name="right">The second <see cref="Store"/> to compare.</param>
+    /// <returns><c>true</c> if both stores are equal; otherwise, <c>false</c>.</returns>
     public static bool operator ==(Store? left, Store? right) => Equals(left, right);
 
+    /// <summary>
+    /// Determines whether two <see cref="Store"/> instances are not equal.
+    /// </summary>
+    /// <param name="left">The first <see cref="Store"/> to compare.</param>
+    /// <param name="right">The second <see cref="Store"/> to compare.</param>
+    /// <returns><c>true</c> if the stores are not equal; otherwise, <c>false</c>.</returns>
     public static bool operator !=(Store? left, Store? right) => !Equals(left, right);
 }
 
