@@ -20,6 +20,8 @@ public sealed class MigrationStatus : IEquatable<MigrationStatus>
         IReadOnlyList<string> pending,
         bool hasPendingModelChanges)
     {
+        ArgumentNullException.ThrowIfNull(applied);
+        ArgumentNullException.ThrowIfNull(pending);
         Applied = applied;
         Pending = pending;
         HasPendingModelChanges = hasPendingModelChanges;
