@@ -200,6 +200,7 @@ public sealed class QueryRejectedException : Exception
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="rejection"/> is null</exception>
     public QueryRejectedException(QueryRejection rejection, string message) : base($"{message}: {rejection.Reason}")
     {
+        ArgumentException.ThrowIfNullOrEmpty(message, nameof(message));
         Rejection = rejection ?? throw new ArgumentNullException(nameof(rejection));
     }
 }
