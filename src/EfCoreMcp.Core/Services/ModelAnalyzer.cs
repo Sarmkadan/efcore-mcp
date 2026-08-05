@@ -4,8 +4,23 @@ using static EfCoreMcp.Core.Services.ModelAnalyzerConstants;
 
 namespace EfCoreMcp.Core.Services;
 
+/// <summary>
+/// Analyzes an EF Core model using an <see cref="IModelIntrospector"/> to produce validation reports
+/// and index suggestions. The analyzer inspects each entity for common modeling issues and
+/// generates findings that can be used to improve the model's design and performance.
+/// </summary>
+/// <param name="introspector">The introspector that provides a description of the EF Core model.</param>
 public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnalyzer
 {
+    /// <summary>
+    /// Validates the EF Core model, checking for a variety of potential problems such as missing primary keys,
+    /// unbounded string columns, missing precision on decimal properties, inappropriate cascade delete settings,
+    /// missing foreign‑key indexes, and other issues that can affect tracking, migrations, or runtime behavior.
+    /// </summary>
+    /// <returns>
+    /// A <see cref="ModelValidationReport"/> that contains the total number of entities examined and a
+    /// list of <see cref="ModelFinding"/> objects ordered by severity and entity name.
+    /// </returns>
     public ModelValidationReport ValidateModel()
     {
         var model = introspector.DescribeModel();
@@ -28,6 +43,13 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
                 .ToList());
     }
 
+    /// <summary>
+    /// Generates index suggestions for foreign keys that are not covered by an existing index or key.
+    /// This helps ensure that joins and cascade delete operations can be performed efficiently.
+    /// </summary>
+    /// <returns>
+    /// A read‑only list of <see cref="IndexSuggestion"/> objects describing missing indexes for foreign keys.
+    /// </returns>
     public IReadOnlyList<IndexSuggestion> SuggestIndexes()
     {
         var model = introspector.DescribeModel();
