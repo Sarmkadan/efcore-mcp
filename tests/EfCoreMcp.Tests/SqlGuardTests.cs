@@ -66,6 +66,7 @@ public class SqlGuardTests : IEquatable<SqlGuardTests>
     /// <param name="sql">The SQL query string to validate.</param>
     public void Validate_AllowsReadOnlyQueries(string sql)
     {
+        ArgumentException.ThrowIfNullOrEmpty("sql");
         Assert.Null(SqlGuard.Validate(sql));
     }
 
@@ -86,6 +87,7 @@ public class SqlGuardTests : IEquatable<SqlGuardTests>
     /// <param name="sql">The SQL query string to validate.</param>
     public void Validate_RejectsMutations(string sql)
     {
+        ArgumentException.ThrowIfNullOrEmpty("sql");
         Assert.NotNull(SqlGuard.Validate(sql));
     }
 
@@ -99,6 +101,7 @@ public class SqlGuardTests : IEquatable<SqlGuardTests>
     /// <param name="sql">The SQL query string to validate.</param>
     public void Validate_RejectsSneakyWrites(string sql)
     {
+        ArgumentException.ThrowIfNullOrEmpty("sql");
         Assert.NotNull(SqlGuard.Validate(sql));
     }
 
