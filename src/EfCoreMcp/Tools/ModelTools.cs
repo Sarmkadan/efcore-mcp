@@ -25,8 +25,12 @@ public sealed class ModelTools(IModelIntrospector introspector, ISchemaExplainer
     Description(ModelToolsConstants.DescribeEntityDescription)]
     public EntityDescriptor DescribeEntity(
         [Description(ModelToolsConstants.DescribeEntityParameterDescription)]
-        string entityName) => introspector.DescribeEntity(entityName)
-        ?? throw new InvalidOperationException(introspector.EntityNotFoundMessage(entityName));
+        string entityName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(entityName);
+        return introspector.DescribeEntity(entityName)
+               ?? throw new InvalidOperationException(introspector.EntityNotFoundMessage(entityName));
+    }
 
     [McpServerTool(Name = ModelToolsConstants.ExplainSchemaName),
     Description(ModelToolsConstants.ExplainSchemaDescription)]
@@ -34,7 +38,11 @@ public sealed class ModelTools(IModelIntrospector introspector, ISchemaExplainer
 
     [McpServerTool(Name = ModelToolsConstants.ExplainEntityName),
     Description(ModelToolsConstants.ExplainEntityDescription)]
-    public string ExplainEntity([Description(ModelToolsConstants.EntityNameParameterDescription)] string entityName) => explainer.ExplainEntity(entityName);
+    public string ExplainEntity([Description(ModelToolsConstants.EntityNameParameterDescription)] string entityName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(entityName);
+        return explainer.ExplainEntity(entityName);
+    }
 
     [McpServerTool(Name = ModelToolsConstants.RelationshipGraphName),
     Description(ModelToolsConstants.RelationshipGraphDescription)]
