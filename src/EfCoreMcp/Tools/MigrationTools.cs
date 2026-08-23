@@ -6,7 +6,7 @@ using ModelContextProtocol.Server;
 namespace EfCoreMcp.Tools;
 
 [McpServerToolType]
-public sealed class MigrationTools(IMigrationInspector inspector)
+public sealed class MigrationTools(IMigrationInspector inspector) : IMigrationTools
 {
     /// <summary>
     /// Lists applied and pending migrations and indicates whether the model has drifted from the last snapshot.
