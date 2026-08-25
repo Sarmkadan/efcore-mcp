@@ -100,6 +100,8 @@ public class Store : IEquatable<Store>
     /// <param name="right">The second <see cref="Store"/> to compare.</param>
     /// <returns><c>true</c> if the stores are not equal; otherwise, <c>false</c>.</returns>
     public static bool operator !=(Store? left, Store? right) => !Equals(left, right);
+
+    public override string ToString() => $"Store {{ Id = {Id}, Name = {Name}, Sales = {Sales} }}";
 }
 
 public class Customer
