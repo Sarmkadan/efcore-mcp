@@ -23,6 +23,8 @@ public class Blog : IBlog
     /// Gets or sets the collection of posts associated with the blog.
     /// </summary>
     public List<Post> Posts { get; set; } = [];
+
+    public override string ToString() => $"Blog {{ Id = {Id}, Title = {Title}, Posts = {Posts} }}";
 }
 
 public class Post
