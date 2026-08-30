@@ -15,7 +15,9 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
         [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default)
     {
-        ArgumentException.ThrowIfNullOrEmpty(sql);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxRows, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(timeoutSeconds, 1);
         return sqlExecutor.ExecuteAsync(new SqlQueryRequest(sql, new QueryLimits(maxRows, timeoutSeconds)), ct);
     }
 
@@ -31,14 +33,22 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
         [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default)
     {
-        ArgumentException.ThrowIfNullOrEmpty(entityName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityName);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxRows, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
+        if (orderBy is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(orderBy);
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(timeoutSeconds, 1);
         return entityExecutor.ExecuteAsync(new EntityQueryRequest(entityName, new QueryLimits(maxRows, timeoutSeconds), orderBy, orderDescending, filter, filterParameters) { Skip = skip }, ct);
     }
 
     [McpServerTool(Name = "count_entity"), Description("Count rows in an entity set.")]
     public Task<long> CountEntity([Description("Entity name")] string entityName, CancellationToken ct = default)
     {
-        ArgumentException.ThrowIfNullOrEmpty(entityName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityName);
         return entityExecutor.CountAsync(entityName, ct);
     }
 
@@ -48,7 +58,8 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
         [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default)
     {
-        ArgumentException.ThrowIfNullOrEmpty(sql);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentOutOfRangeException.ThrowIfLessThan(timeoutSeconds, 1);
         return sqlExecutor.ExplainAsync(new SqlQueryRequest(sql, new QueryLimits(0, timeoutSeconds)), ct);
     }
 }
