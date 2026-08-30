@@ -72,37 +72,63 @@ public static partial class SqlGuard
         if (sql is null)
             throw new ArgumentNullException(nameof(sql));
 
-        if (string.IsNullOrEmpty(sql))
-            return new QueryRejection(QueryRejectionCode.EmptyQuery, SqlGuardConstants.EmptyQueryMessage);
+        var rejection = ValidateNotEmpty(sql);
+        if (rejection is not null)
+            return rejection;
 
-        if (string.IsNullOrWhiteSpace(sql))
-            return new QueryRejection(QueryRejectionCode.EmptyQuery, SqlGuardConstants.EmptyQueryMessage);
+        var normalizedSql = StripCommentsAndLiterals(sql);
 
-        var trimmed = sql.Trim();
+        rejection = ValidateSingleStatement(normalizedSql, out var statement);
+        if (rejection is not null)
+            return rejection;
+
+        rejection = ValidateNoForbiddenWriteOperations(statement);
+        if (rejection is not null)
+            return rejection;
+
+        rejection = ValidateStatementStart(statement);
+        if (rejection is not null)
+            return rejection;
+
+        return ValidateCteWithWriteOperations(statement);
+    }
+
+    private static QueryRejection? ValidateNotEmpty(string sql)
+    {
+        return string.IsNullOrWhiteSpace(sql)
+            ? new QueryRejection(QueryRejectionCode.EmptyQuery, SqlGuardConstants.EmptyQueryMessage)
+            : null;
+    }
+
+    private static string StripCommentsAndLiterals(string sql)
+    {
+        var normalizedSql = sql.Trim();
 
         // Normalize line endings and whitespace
-        trimmed = Regex.Replace(trimmed, @"\r?\n", " ", RegexOptions.Multiline);
-        trimmed = Regex.Replace(trimmed, @"\s+", " ");
+        normalizedSql = Regex.Replace(normalizedSql, @"\r?\n", " ", RegexOptions.Multiline);
+        normalizedSql = Regex.Replace(normalizedSql, @"\s+", " ");
 
         // Remove comments and string literals for safer parsing
-        var stripped = StringLiteralPattern().Replace(CommentPattern().Replace(trimmed, " "), "''");
-        stripped = stripped.Trim();
+        return StringLiteralPattern().Replace(CommentPattern().Replace(normalizedSql, " "), "''").Trim();
+    }
 
+    private static QueryRejection? ValidateSingleStatement(string normalizedSql, out string statement)
+    {
         // Check for multiple statements separated by semicolons
-        var statements = stripped.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var statements = normalizedSql.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        statement = statements.Length == 1 ? statements[0] : normalizedSql;
+
         if (statements.Length > 1)
             return new QueryRejection(QueryRejectionCode.MultipleStatements, SqlGuardConstants.MultipleStatementsMessage);
 
-        var statementToCheck = statements.Length == 1 ? statements[0] : stripped;
-
-        return ValidateSingleStatement(statementToCheck);
-    }
-
-    private static QueryRejection? ValidateSingleStatement(string statement)
-    {
         if (string.IsNullOrEmpty(statement))
             return new QueryRejection(QueryRejectionCode.EmptyStatement, SqlGuardConstants.EmptyStatementMessage);
 
+        return null;
+    }
+
+    private static QueryRejection? ValidateNoForbiddenWriteOperations(string statement)
+    {
         // Check for write operations in the statement first (before checking statement type)
         // This ensures INSERT/UPDATE/DELETE get ForbiddenKeyword code instead of NotSelect
         if (WriteOperationPattern().IsMatch(statement))
@@ -123,6 +149,11 @@ public static partial class SqlGuard
         if (statement.Contains(" into ", StringComparison.OrdinalIgnoreCase))
             return new QueryRejection(QueryRejectionCode.ForbiddenKeyword, SqlGuardConstants.IntoKeywordMessage);
 
+        return null;
+    }
+
+    private static QueryRejection? ValidateStatementStart(string statement)
+    {
         // Trim leading whitespace for StartWith check
         var trimmedStatement = statement.TrimStart();
 
@@ -131,20 +162,15 @@ public static partial class SqlGuard
         if (!startsWithReadOnly)
             return new QueryRejection(QueryRejectionCode.NotSelect, SqlGuardConstants.NotSelectMessage);
 
-        // For WITH clauses, check if they contain write operations
-        if (WithKeywordPattern().IsMatch(statement))
-        {
-            // Extract CTE definitions and check for write operations
-            var rejection = ValidateCteWithWriteOperations(statement);
-            if (rejection is not null)
-                return rejection;
-        }
-
         return null;
     }
 
     private static QueryRejection? ValidateCteWithWriteOperations(string statement)
     {
+        // For WITH clauses, check if they contain write operations
+        if (!WithKeywordPattern().IsMatch(statement))
+            return null;
+
         // Find the first SELECT after WITH to separate CTE definitions from main query
         var withIndex = statement.IndexOf("with", StringComparison.OrdinalIgnoreCase);
         if (withIndex < 0)
