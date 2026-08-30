@@ -5,6 +5,8 @@ using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EfCoreMcp.Core.Services;
 
@@ -15,13 +17,17 @@ namespace EfCoreMcp.Core.Services;
 public sealed class DbContextProvider : IDbContextProvider
 {
     private readonly ContextConnectionOptions _options;
+    private readonly ILogger<DbContextProvider> _logger;
     private readonly Lock _gate = new();
     private DbContextCache _cache;
 
-    public DbContextProvider(ContextConnectionOptions options)
+    public DbContextProvider(
+        ContextConnectionOptions options,
+        ILogger<DbContextProvider>? logger = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _cache = new DbContextCache(_options, this);
+        _logger = logger ?? NullLogger<DbContextProvider>.Instance;
+        _cache = new DbContextCache(_options, _logger, this);
     }
 
     public DbContext GetContext()
@@ -37,7 +43,14 @@ public sealed class DbContextProvider : IDbContextProvider
         var ctx = GetContext();
         bool canConnect;
         try { canConnect = ctx.Database.CanConnect(); }
-        catch { canConnect = false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "CanConnect failed for context type {ContextType}",
+                ctx.GetType().FullName ?? ctx.GetType().Name);
+            canConnect = false;
+        }
 
         // Get all available context types in the assembly
         var allContextTypes = GetAllContextTypeNames(ctx.GetType().Assembly);
@@ -74,8 +87,11 @@ public sealed class DbContextProvider : IDbContextProvider
     {
         lock (_gate)
         {
+            _logger.LogDebug(
+                "Recreating context cache for assembly {AssemblyPath}",
+                Path.GetFullPath(_options.AssemblyPath));
             _cache.Dispose();
-            _cache = new DbContextCache(_options, this);
+            _cache = new DbContextCache(_options, _logger, this);
         }
     }
 
@@ -90,6 +106,7 @@ public sealed class DbContextProvider : IDbContextProvider
     private sealed class DbContextCache : IDisposable
     {
         private readonly ContextConnectionOptions _options;
+        private readonly ILogger<DbContextProvider> _logger;
         private readonly IModelIntrospector? _introspector;
         private AssemblyLoadContext? _loadContext;
         private Func<DbContext>? _factory;
@@ -97,9 +114,13 @@ public sealed class DbContextProvider : IDbContextProvider
         private DateTime _lastAssemblyWriteTime;
         private bool _disposed;
 
-        public DbContextCache(ContextConnectionOptions options, IDbContextProvider? provider = null)
+        public DbContextCache(
+            ContextConnectionOptions options,
+            ILogger<DbContextProvider> logger,
+            IDbContextProvider? provider = null)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _introspector = provider as IModelIntrospector;
             Initialize();
         }
@@ -131,6 +152,11 @@ public sealed class DbContextProvider : IDbContextProvider
             var contextType = ResolveContextType(assembly);
             var factory = FindDesignTimeFactory(assembly, contextType);
             _factory = factory ?? CreateDefaultFactory(contextType);
+
+            _logger.LogInformation(
+                "Loaded context assembly {AssemblyPath} with context type {ContextType}",
+                assemblyPath,
+                contextType.FullName ?? contextType.Name);
         }
 
         private static string CreateTempAssemblyCopy(string sourcePath)
@@ -204,6 +230,9 @@ public sealed class DbContextProvider : IDbContextProvider
                 catch { /* Best effort */ }
 
                 // Recreate cache with new assembly
+                _logger.LogDebug(
+                    "Recreating context cache for assembly {AssemblyPath}",
+                    assemblyPath);
                 Initialize();
             }
             catch (Exception ex)
@@ -219,6 +248,9 @@ public sealed class DbContextProvider : IDbContextProvider
             if (_disposed)
                 throw new ObjectDisposedException(nameof(DbContextCache));
 
+            _logger.LogDebug(
+                "Context cache hit for assembly {AssemblyPath}",
+                Path.GetFullPath(_options.AssemblyPath));
             return _factory!();
         }
 
