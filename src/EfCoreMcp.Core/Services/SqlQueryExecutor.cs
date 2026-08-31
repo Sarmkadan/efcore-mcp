@@ -11,6 +11,31 @@ namespace EfCoreMcp.Core.Services;
 /// </summary>
 public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQueryExecutor
 {
+    /// <summary>
+    /// The maximum allowed number of rows returned by a query.
+    /// </summary>
+    public const int MaxRowsUpperBound = 10_000;
+
+    /// <summary>
+    /// The minimum allowed number of rows returned by a query.
+    /// </summary>
+    public const int MinRows = 1;
+
+    /// <summary>
+    /// The maximum allowed query timeout in seconds.
+    /// </summary>
+    public const int MaxTimeoutSeconds = 300;
+
+    /// <summary>
+    /// The minimum allowed query timeout in seconds.
+    /// </summary>
+    public const int MinTimeoutSeconds = 1;
+
+    /// <summary>
+    /// The default query timeout in seconds.
+    /// </summary>
+    public const int DefaultTimeoutSeconds = 30;
+
     private const int MaxRetryAttempts = 3;
     private const int RetryDelayMilliseconds = 100;
 
@@ -31,10 +56,10 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
             throw new QueryRejectedException(rejection);
 
         var limits = request.Limits ?? new QueryLimits();
-        if (limits.MaxRows < 1 || limits.MaxRows > 10_000)
-            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"MaxRows must be between 1 and 10000. Got: {limits.MaxRows}"));
-        if (limits.TimeoutSeconds < 1 || limits.TimeoutSeconds > 300)
-            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between 1 and 300. Got: {limits.TimeoutSeconds}"));
+        if (limits.MaxRows < MinRows || limits.MaxRows > MaxRowsUpperBound)
+            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"MaxRows must be between {MinRows} and {MaxRowsUpperBound}. Got: {limits.MaxRows}"));
+        if (limits.TimeoutSeconds < MinTimeoutSeconds || limits.TimeoutSeconds > MaxTimeoutSeconds)
+            throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between {MinTimeoutSeconds} and {MaxTimeoutSeconds}. Got: {limits.TimeoutSeconds}"));
 
         var maxRows = limits.MaxRows;
         var timeoutSeconds = limits.TimeoutSeconds;
@@ -315,9 +340,9 @@ public sealed class SqlQueryExecutor(IDbContextProvider contextProvider) : ISqlQ
 
             await using var command = connection.CreateCommand();
             command.CommandText = explainCommand;
-            var timeoutSeconds = request.Limits?.TimeoutSeconds ?? 30;
-            if (timeoutSeconds < 1 || timeoutSeconds > 300)
-                throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between 1 and 300. Got: {timeoutSeconds}"));
+            var timeoutSeconds = request.Limits?.TimeoutSeconds ?? DefaultTimeoutSeconds;
+            if (timeoutSeconds < MinTimeoutSeconds || timeoutSeconds > MaxTimeoutSeconds)
+                throw new QueryRejectedException(new QueryRejection(QueryRejectionCode.LimitExceeded, $"TimeoutSeconds must be between {MinTimeoutSeconds} and {MaxTimeoutSeconds}. Got: {timeoutSeconds}"));
             command.CommandTimeout = timeoutSeconds;
 
             // Execute the explain command
