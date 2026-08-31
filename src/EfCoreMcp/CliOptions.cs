@@ -8,6 +8,41 @@ namespace EfCoreMcp;
 public sealed record CliOptions(ContextConnectionOptions Connection)
 {
     /// <summary>
+    /// Exception thrown when command-line help is requested.
+    /// </summary>
+    public sealed class HelpRequestedException : Exception
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="HelpRequestedException"/> class.
+        /// </summary>
+        public HelpRequestedException()
+            : base(BuildHelpText())
+        {
+        }
+    }
+
+    /// <summary>
+    /// Builds the command-line usage text.
+    /// </summary>
+    /// <returns>Usage text describing the supported options and environment variables.</returns>
+    public static string BuildHelpText() =>
+        """
+        Usage: EfCoreMcp --assembly <path-to-dll> [options]
+
+        Options:
+          --assembly, -a <path-to-dll>  Path to the assembly containing the DbContext (required).
+          --context, -c <type-name>     DbContext type name.
+          --connection <string>        Database connection string.
+          --provider <provider>        Database provider (default: auto).
+          --help, -h                   Show this help text.
+
+        Environment fallbacks:
+          EFCORE_MCP_ASSEMBLY          Fallback for --assembly.
+          EFCORE_MCP_CONTEXT           Fallback for --context.
+          EFCORE_MCP_CONNECTION        Fallback for --connection.
+        """;
+
+    /// <summary>
     /// Parses command-line arguments into <see cref="CliOptions"/>.
     /// </summary>
     /// <param name="args">Command-line arguments.</param>
@@ -15,6 +50,11 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
     /// <exception cref="ArgumentException">Thrown when required options are missing.</exception>
     public static CliOptions Parse(string[] args)
     {
+        if (args.Any(arg => arg is "--help" or "-h"))
+        {
+            throw new HelpRequestedException();
+        }
+
         string? assembly = null, context = null, connectionString = null;
         var provider = "auto";
 
@@ -36,6 +76,15 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
 
                 case "--provider" when i + 1 < args.Length:
                     provider = args[++i];
+                    break;
+
+                default:
+                    if (args[i].StartsWith('-') &&
+                        args[i] is not ("--assembly" or "-a" or "--context" or "-c" or "--connection" or "--provider"))
+                    {
+                        throw new ArgumentException($"Unknown option '{args[i]}'. Use --help for usage information.");
+                    }
+
                     break;
             }
         }
