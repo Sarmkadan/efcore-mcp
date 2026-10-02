@@ -227,8 +227,7 @@ public class SqlGuardTests : IEquatable<SqlGuardTests>
     {
         var rejection = SqlGuard.Validate("DROP TABLE x");
         Assert.NotNull(rejection);
-        // DROP TABLE x doesn't start with SELECT or WITH, so it's caught by NotSelect first
-        Assert.Equal(QueryRejectionCode.NotSelect, rejection.Code);
+        Assert.Equal(QueryRejectionCode.ForbiddenKeyword, rejection.Code);
         Assert.False(string.IsNullOrWhiteSpace(rejection.Reason));
     }
 

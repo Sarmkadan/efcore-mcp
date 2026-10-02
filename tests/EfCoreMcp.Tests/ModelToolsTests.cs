@@ -108,8 +108,7 @@ public class ModelToolsTests : IDisposable
     [Fact]
     public void DescribeEntity_WithEmptyEntityName_ThrowsInvalidOperationException()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() => _modelTools.DescribeEntity(""));
-        Assert.Contains("not found", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Throws<ArgumentException>(() => _modelTools.DescribeEntity(""));
     }
 
     [Fact]

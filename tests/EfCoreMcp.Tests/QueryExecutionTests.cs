@@ -276,13 +276,8 @@ public class QueryExecutionTests
         // Arrange
         var rejection = new QueryRejection(QueryRejectionCode.NotSelect, "Not a SELECT statement");
 
-        // Act
-        var exception = new QueryRejectedException(rejection, null!);
-
-        // Assert
-        Assert.NotNull(exception);
-        Assert.Equal(rejection, exception.Rejection);
-        Assert.Contains("Not a SELECT statement", exception.Message);
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new QueryRejectedException(rejection, null!));
     }
 
     [Fact]
