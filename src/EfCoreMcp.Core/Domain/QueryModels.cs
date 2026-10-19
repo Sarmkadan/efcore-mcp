@@ -236,7 +236,10 @@ public enum QueryRejectionCode
     TimeoutConstraint,
 
     /// <summary>Limit constraint violation.</summary>
-    LimitExceeded
+    LimitExceeded,
+
+    /// <summary>Query or entity references a schema outside the configured allow-list.</summary>
+    SchemaNotAllowed
 }
 
 /// <summary>

@@ -8,10 +8,10 @@ namespace EfCoreMcp.Tools
 {
     public interface IQueryTools
     {
-        Task<QueryResult> QuerySql(string sql, int maxRows = 100, int timeoutSeconds = 30, CancellationToken ct = default);
+        Task<QueryResult> QuerySql(string sql, int? maxRows = null, int timeoutSeconds = 30, CancellationToken ct = default);
         Task<QueryResult> QueryEntity(
             string entityName,
-            int maxRows = 100,
+            int? maxRows = null,
             int skip = 0,
             string? orderBy = null,
             bool orderDescending = false,

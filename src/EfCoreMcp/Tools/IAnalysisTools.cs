@@ -10,6 +10,6 @@ public interface IAnalysisTools
 {
     ModelValidationReport ValidateModel();
     IReadOnlyList<IndexSuggestion> SuggestIndexes();
-    RelationshipPath ExplainRelationship(string fromEntity, string toEntity);
+    RelationshipPath ExplainRelationship(string fromEntity, string toEntity, int? maxHops = null);
     DependencyOrder DependencyOrder();
 }

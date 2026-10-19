@@ -60,7 +60,57 @@ public interface IModelAnalyzer
 public interface IRelationshipAnalyzer
 {
     RelationshipPath ExplainRelationship(string fromEntity, string toEntity);
+
+    /// <summary>
+    /// Finds the shortest foreign-key chain between two entities, searching no further than <paramref name="maxHops"/> hops.
+    /// </summary>
+    /// <param name="fromEntity">The starting entity name.</param>
+    /// <param name="toEntity">The target entity name.</param>
+    /// <param name="maxHops">The maximum number of hops to search.</param>
+    /// <returns>The relationship path, or a result with <see cref="RelationshipPath.Found"/> set to false.</returns>
+    RelationshipPath ExplainRelationship(string fromEntity, string toEntity, int maxHops);
+
     DependencyOrder GetDependencyOrder();
+}
+
+/// <summary>
+/// Enforces <see cref="RuntimeLimitsOptions"/> on tool requests. Each method throws when a request exceeds a limit.
+/// </summary>
+public interface IRuntimeLimitGuard
+{
+    /// <summary>
+    /// Resolves the effective row limit for a query. A missing value uses the default of 100, capped by the configured maximum.
+    /// </summary>
+    /// <param name="requested">The row count requested by the caller, or <see langword="null"/> for the default.</param>
+    /// <returns>The row limit to apply.</returns>
+    int ResolveMaxRows(int? requested);
+
+    /// <summary>Throws if the SQL text is longer than the configured maximum.</summary>
+    /// <param name="sql">The SQL text to check.</param>
+    void EnsureQueryLength(string sql);
+
+    /// <summary>Throws if the entity's schema is not on the allow-list. Unknown entities are left for the executor to report.</summary>
+    /// <param name="entityName">The entity name to check.</param>
+    void EnsureEntitySchemaAllowed(string entityName);
+
+    /// <summary>
+    /// Throws if the SQL text qualifies a name with a model schema that is not allowed.
+    /// This is a best-effort check on the text, not a full SQL parse.
+    /// </summary>
+    /// <param name="sql">The SQL text to check.</param>
+    void EnsureSqlSchemasAllowed(string sql);
+
+    /// <summary>Throws if either endpoint of a relationship is in a schema that is not allowed.</summary>
+    /// <param name="fromEntity">The starting entity name.</param>
+    /// <param name="toEntity">The target entity name.</param>
+    void EnsureRelationshipEndpointsAllowed(string fromEntity, string toEntity);
+
+    /// <summary>
+    /// Resolves the effective hop limit for a relationship search. A missing value uses the configured maximum.
+    /// </summary>
+    /// <param name="requested">The hop limit requested by the caller, or <see langword="null"/> for the configured maximum.</param>
+    /// <returns>The hop limit to apply.</returns>
+    int ResolveAnalysisDepth(int? requested);
 }
 
 public interface ISchemaExplainer

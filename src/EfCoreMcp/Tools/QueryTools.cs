@@ -6,25 +6,27 @@ using ModelContextProtocol.Server;
 namespace EfCoreMcp.Tools;
 
 [McpServerToolType]
-public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecutor entityExecutor) : IQueryTools
+public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecutor entityExecutor, IRuntimeLimitGuard guard) : IQueryTools
 {
     [McpServerTool(Name = "query_sql"), Description("Run a read-only SQL SELECT query against the database. Non-SELECT statements are rejected.")]
-    public Task<QueryResult> QuerySql(
+    public async Task<QueryResult> QuerySql(
         [Description("A single SELECT (or WITH ... SELECT) statement")] string sql,
-        [Description("Maximum rows to return (default 100, max 10000)")] int maxRows = 100,
+        [Description("Maximum rows to return (default 100, capped by the server's --max-rows limit)")] int? maxRows = null,
         [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxRows, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(timeoutSeconds, 1);
-        return sqlExecutor.ExecuteAsync(new SqlQueryRequest(sql, new QueryLimits(maxRows, timeoutSeconds)), ct);
+        guard.EnsureQueryLength(sql);
+        guard.EnsureSqlSchemasAllowed(sql);
+        var rows = guard.ResolveMaxRows(maxRows);
+        return await sqlExecutor.ExecuteAsync(new SqlQueryRequest(sql, new QueryLimits(rows, timeoutSeconds)), ct);
     }
 
     [McpServerTool(Name = "query_entity"), Description("Read rows of an entity set through EF Core with paging, ordering, and filtering. Returns scalar properties only.")]
-    public Task<QueryResult> QueryEntity(
+    public async Task<QueryResult> QueryEntity(
         [Description("Entity name")] string entityName,
-        [Description("Rows to take (default 100, max 1000)")] int maxRows = 100,
+        [Description("Rows to take (default 100, capped by the server's --max-rows limit)")] int? maxRows = null,
         [Description("Rows to skip")] int skip = 0,
         [Description("Property name to order by")] string? orderBy = null,
         [Description("Order descending")] bool orderDescending = false,
@@ -34,7 +36,6 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(entityName);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxRows, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(skip);
         if (orderBy is not null)
         {
@@ -42,24 +43,29 @@ public sealed class QueryTools(ISqlQueryExecutor sqlExecutor, IEntityQueryExecut
         }
 
         ArgumentOutOfRangeException.ThrowIfLessThan(timeoutSeconds, 1);
-        return entityExecutor.ExecuteAsync(new EntityQueryRequest(entityName, new QueryLimits(maxRows, timeoutSeconds), orderBy, orderDescending, filter, filterParameters) { Skip = skip }, ct);
+        guard.EnsureEntitySchemaAllowed(entityName);
+        var rows = guard.ResolveMaxRows(maxRows);
+        return await entityExecutor.ExecuteAsync(new EntityQueryRequest(entityName, new QueryLimits(rows, timeoutSeconds), orderBy, orderDescending, filter, filterParameters) { Skip = skip }, ct);
     }
 
     [McpServerTool(Name = "count_entity"), Description("Count rows in an entity set.")]
-    public Task<long> CountEntity([Description("Entity name")] string entityName, CancellationToken ct = default)
+    public async Task<long> CountEntity([Description("Entity name")] string entityName, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(entityName);
-        return entityExecutor.CountAsync(entityName, ct);
+        guard.EnsureEntitySchemaAllowed(entityName);
+        return await entityExecutor.CountAsync(entityName, ct);
     }
 
     [McpServerTool(Name = "explain_sql"), Description("Generate an execution plan for a SQL query without executing it. Returns the query plan and performance heuristics.")]
-    public Task<ExecutionPlanResult> ExplainSql(
+    public async Task<ExecutionPlanResult> ExplainSql(
         [Description("A single SELECT (or WITH ... SELECT) statement to analyze")] string sql,
         [Description("Query timeout in seconds (default 30, max 300)")] int timeoutSeconds = 30,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentOutOfRangeException.ThrowIfLessThan(timeoutSeconds, 1);
-        return sqlExecutor.ExplainAsync(new SqlQueryRequest(sql, new QueryLimits(0, timeoutSeconds)), ct);
+        guard.EnsureQueryLength(sql);
+        guard.EnsureSqlSchemasAllowed(sql);
+        return await sqlExecutor.ExplainAsync(new SqlQueryRequest(sql, new QueryLimits(0, timeoutSeconds)), ct);
     }
 }
