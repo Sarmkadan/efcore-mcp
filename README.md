@@ -180,6 +180,182 @@ The server also exposes model, migration, and analysis tools, such as `describe_
 - **Dependencies of the target assembly are not resolved.** The server copies only the main DLL into a temporary folder and resolves dependencies only from that folder. An assembly that references an EF Core provider package, such as `Microsoft.EntityFrameworkCore.Sqlite`, fails with `FileNotFoundException`. Native libraries, such as SQLite's `e_sqlite3`, also fail to load. This means the sample above does not run end-to-end until the loader is fixed.
 - **`query_entity` `filter` is validated but not applied.** Filter expressions are checked for allowed properties and operators, but the query runs without them. Do not rely on `filter` yet.
 
+## Migrations and model inspection
+
+The migration and model tools answer questions such as "which migrations are pending?", "what would my next migration change?", and "what does the `Order` entity look like?". They only read the loaded context. They do not change the database or your migration files.
+
+The examples below use the shop sample from the worked example, with these migrations and model state:
+
+- `InitialCreate` is applied to `shop.db`.
+- `AddOrderStatus` exists in `Migrations/` but is not applied yet.
+- `Customer.Phone` was added to the model after the last migration, so the model has drifted from the snapshot.
+
+The server was started with `--assembly Shop.dll --connection "Data Source=/absolute/path/to/shop.db"`. Responses are pretty-printed here for readability. The server returns compact JSON. The outputs were captured with the provider assemblies visible to the loader, as described in Known issues.
+
+### Migrations (`MigrationTools`)
+
+The server does not apply migrations. It reports what has been applied and previews what a new migration would contain. To apply migrations, run `dotnet ef database update` or call `context.Database.Migrate()` in your application, then ask the client to check `migration_status` again.
+
+Example prompt: *"Which migrations have not been applied yet, and does the model need a new one?"*
+
+`migration_status` takes no parameters:
+
+```json
+{"name": "migration_status", "arguments": {}}
+```
+
+```json
+{
+  "applied": [
+    "20261019054751_InitialCreate"
+  ],
+  "pending": [
+    "20261019054804_AddOrderStatus"
+  ],
+  "hasPendingModelChanges": true
+}
+```
+
+`applied` and `pending` are migration IDs as they appear in the `Migrations/` folder. `hasPendingModelChanges` is `true` when the current model differs from the last snapshot.
+
+Example prompt: *"What would my next migration change? Flag anything that could lose data."*
+
+`diff_pending_changes` takes no parameters:
+
+```json
+{"name": "diff_pending_changes", "arguments": {}}
+```
+
+```json
+{
+  "hasDifferences": true,
+  "operations": [
+    {
+      "operationType": "AddColumn",
+      "table": "Customers",
+      "name": "Phone",
+      "description": "AddColumn: Phone on Customers",
+      "isDestructive": false
+    }
+  ]
+}
+```
+
+`isDestructive` is `true` for `DropTable`, `DropColumn`, `DropIndex`, `DropForeignKey`, `DropPrimaryKey`, `AlterColumn`, `RenameTable`, and `RenameColumn` operations.
+
+### Model inspection (`ModelTools`)
+
+| Tool | Parameters | Returns |
+| --- | --- | --- |
+| `context_info` | none | JSON with the context type, assembly, provider, database name, and `canConnect`. |
+| `list_contexts` | none | JSON array of DbContext types in the assembly. |
+| `list_entities` | none | JSON array of entity names. |
+| `describe_model` | none | JSON with every entity: properties, keys, foreign keys, navigations, and indexes. |
+| `describe_entity` | `entityName` (required) | JSON for one entity. The name can be the CLR name, the short name, or the table name. |
+| `explain_schema` | none | Markdown explanation of the whole model. |
+| `explain_entity` | `entityName` (required) | Markdown explanation of one entity. |
+| `relationship_graph` | none | Mermaid `erDiagram` of the entity relationships. |
+
+Example prompt: *"Which entities are in the model, and how are they related?"*
+
+```json
+{"name": "list_entities", "arguments": {}}
+```
+
+```json
+["Customer", "Order"]
+```
+
+```json
+{"name": "relationship_graph", "arguments": {}}
+```
+
+```
+erDiagram
+    Customer {
+        Int32 Id PK
+        String Email
+        String Name
+        String Phone
+    }
+    Order {
+        Int32 Id PK
+        Int32 CustomerId FK
+        DateTime PlacedAt
+        String Status
+        Decimal Total
+    }
+    Customer ||--o{ Order : "CustomerId"
+```
+
+Example prompt: *"Describe the Order entity, including its foreign keys."*
+
+```json
+{"name": "describe_entity", "arguments": {"entityName": "Order"}}
+```
+
+The response is shown compact, as the server returns it. Properties and foreign keys are abbreviated with `…`:
+
+```json
+{"name":"Order","clrType":"Shop.Order","tableName":"Orders","isOwned":false,"properties":[{"name":"Id","clrType":"Int32","columnName":"Id","columnType":"INTEGER","isNullable":false,"isPrimaryKey":true,"isForeignKey":false,"isShadow":false,"valueGenerated":"OnAdd","isConcurrencyToken":false},…,{"name":"Status","clrType":"String","columnName":"Status","columnType":"TEXT","isNullable":false,"isPrimaryKey":false,"isForeignKey":false,"isShadow":false,"valueGenerated":"Never","isConcurrencyToken":false},…],"primaryKey":{"name":"PK_Orders","properties":["Id"],"isPrimary":true},"alternateKeys":[],"foreignKeys":[{"constraintName":"FK_Orders_Customers_CustomerId","principalEntity":"Customer","dependentEntity":"Order","properties":["CustomerId"],"principalProperties":["Id"],"deleteBehavior":"Cascade","isRequired":true,"isUnique":false}],"navigations":[{"name":"Customer","targetEntity":"Customer","isCollection":false,"isOnDependent":true,"inverseName":"Orders"}],"indexes":[{"name":"IX_Orders_CustomerId","properties":["CustomerId"],"isUnique":false}]}
+```
+
+`describe_model` returns the same entity shape for every entity, wrapped in `contextName`, `providerName`, and `entities`. The sample is too large to reproduce here.
+
+For a readable version of one entity, use `explain_entity`:
+
+```json
+{"name": "explain_entity", "arguments": {"entityName": "Order"}}
+```
+
+```markdown
+# Order
+Table: Orders
+
+| Property | Type | Column | Nullable | Notes |
+|---|---|---|---|---|
+| Id | Int32 | Id (INTEGER) | no | PK, generated: OnAdd |
+| CustomerId | Int32 | CustomerId (INTEGER) | no | FK |
+| PlacedAt | DateTime | PlacedAt (TEXT) | no |  |
+| Status | String | Status (TEXT) | no |  |
+| Total | Decimal | Total (TEXT) | no |  |
+
+Relationships:
+- Order.(CustomerId) -> Customer.(Id) [Cascade, required]
+
+Indexes:
+- IX_Orders_CustomerId: (CustomerId)
+```
+
+`context_info` and `list_contexts` are useful when the assembly has more than one context. In the sample, which has one context, they return:
+
+```json
+{"name": "context_info", "arguments": {}}
+```
+
+```json
+{
+  "contextType": "Shop.ShopDbContext",
+  "assemblyName": "Shop",
+  "providerName": "Microsoft.EntityFrameworkCore.Sqlite",
+  "database": "main",
+  "canConnect": true
+}
+```
+
+### Troubleshooting context loading
+
+The server loads the context when a tool first needs it. A failure is returned to the client only as `An error occurred invoking '<tool>'.` The reason is written to the server's stderr log, as described in [Troubleshooting](#troubleshooting). The messages below come from `DbContextProvider`.
+
+- **`DbContext 'Missing' not found. Available: ShopDbContext`**. The value of `--context` or `EFCORE_MCP_CONTEXT` does not match any concrete `DbContext` in the assembly. The match is case-sensitive and accepts the full name or the short name. Use one of the names in the `Available` list.
+- **`No DbContext types found in the assembly.`**. The assembly has no concrete `DbContext`. This often means `--assembly` points at a library that references the context instead of the project that defines it. Use the built output of the project that contains the context.
+- **`Cannot instantiate 'X': no parameterless constructor.`**. The context has no parameterless constructor, and the assembly has no `IDesignTimeDbContextFactory<X>`. Add one of the two.
+- **`Multiple DbContext types found`**. Add `--context <TypeName>`. See [Troubleshooting](#troubleshooting).
+- **Missing connection string.** Neither `--connection` nor `EFCORE_MCP_CONNECTION` is set, and the context does not configure a provider in `OnConfiguring`. The error is `No database provider has been configured for this DbContext.` `--connection` supplies only the connection string. It does not select a provider, so the same error appears even when `--connection` is set. Configure the provider in `OnConfiguring` or in an `IDesignTimeDbContextFactory<T>`.
+- **Assembly path wrong.** The server copies the assembly to a temporary folder before loading it. A wrong path fails with a `System.IO` exception that names the path, such as `Could not find a part of the path '/tmp/nope/Missing.dll'.`
+- **Assembly dependency not found.** A message such as `Could not load file or assembly 'Microsoft.EntityFrameworkCore.Sqlite, Version=…'` or `Unable to load shared library 'e_sqlite3'` means a provider assembly or its native library is not available to the loader. This is the limitation described in [Known issues](#known-issues).
+- **Reload failure.** When the assembly changes on disk, the server reloads it. If the reload fails, it writes `Failed to reload assembly: …` to stderr and keeps using the previous context.
+
 ## ModelFinding
 
 `ModelFinding` is a sealed record that represents a single observation discovered while analyzing or validating an EF Core model. Because it is a record, findings are immutable, compare by value, and provide a readable `ToString()` representation out of the box. This makes findings easy to log, deduplicate, and pattern-match when building reporting or diagnostics on top of the analysis services.
