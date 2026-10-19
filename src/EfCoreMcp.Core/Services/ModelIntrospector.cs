@@ -32,6 +32,7 @@ public sealed class ModelIntrospector : IModelIntrospector
         }
 
         var entities = DesignTimeModel(ctx).GetEntityTypes()
+            .Where(e => !e.IsOwned())
             .Select(Describe)
             .OrderBy(e => e.Name, StringComparer.Ordinal)
             .ToList();
@@ -69,6 +70,7 @@ public sealed class ModelIntrospector : IModelIntrospector
         }
 
         var names = DesignTimeModel(ctx).GetEntityTypes()
+            .Where(e => !e.IsOwned())
             .Select(e => e.ShortName())
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
