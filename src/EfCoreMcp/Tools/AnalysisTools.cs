@@ -9,7 +9,7 @@ namespace EfCoreMcp.Tools;
 /// Provides tools for analyzing the EF Core model.
 /// </summary>
 [McpServerToolType]
-public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer relationships) : IAnalysisTools
+public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer relationships, IRuntimeLimitGuard guard) : IAnalysisTools
 {
     /// <summary>
     /// Scans the EF Core model for common pitfalls.
@@ -37,15 +37,20 @@ public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer
     /// </summary>
     /// <param name="fromEntity">The name of the starting entity.</param>
     /// <param name="toEntity">The name of the target entity.</param>
+    /// <param name="maxHops">The maximum number of hops to search. Defaults to the configured analysis depth.</param>
     /// <returns>The shortest chain of foreign keys between the two entities, including cardinality and delete behavior at each hop.</returns>
+    /// <exception cref="QueryRejectedException">Thrown when either entity is in a schema that is not allowed.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxHops"/> is outside the configured analysis depth.</exception>
     [McpServerTool(Name = "explain_relationship"), Description("Explain how two entities are related: the shortest chain of foreign keys between them, with cardinality and delete behavior at each hop.")]
     public RelationshipPath ExplainRelationship(
         [Description("Starting entity name")] string fromEntity,
-        [Description("Target entity name")] string toEntity)
+        [Description("Target entity name")] string toEntity,
+        [Description("Maximum foreign-key hops to search (default: the server's --max-analysis-depth)")] int? maxHops = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(fromEntity);
         ArgumentException.ThrowIfNullOrEmpty(toEntity);
-        return relationships.ExplainRelationship(fromEntity, toEntity);
+        guard.EnsureRelationshipEndpointsAllowed(fromEntity, toEntity);
+        return relationships.ExplainRelationship(fromEntity, toEntity, guard.ResolveAnalysisDepth(maxHops));
     }
 
     /// <summary>

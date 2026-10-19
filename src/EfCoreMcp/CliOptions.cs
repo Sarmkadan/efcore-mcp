@@ -1,3 +1,4 @@
+using System.Globalization;
 using EfCoreMcp.Core.Domain;
 
 namespace EfCoreMcp;
@@ -7,6 +8,11 @@ namespace EfCoreMcp;
 /// </summary>
 public sealed record CliOptions(ContextConnectionOptions Connection)
 {
+    /// <summary>
+    /// Runtime limits for the query and analysis tools. Validated by <see cref="Parse"/> at startup.
+    /// </summary>
+    public RuntimeLimitsOptions Limits { get; init; } = new();
+
     /// <summary>
     /// Exception thrown when command-line help is requested.
     /// </summary>
@@ -34,12 +40,20 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
           --context, -c <type-name>     DbContext type name.
           --connection <string>        Database connection string.
           --provider <provider>        Database provider (default: auto).
+          --max-rows <n>               Row cap for query tools (default: 10000, range 1-10000).
+          --max-query-length <n>       SQL length cap in characters (default: 10000, range 1-1000000).
+          --allowed-schemas <list>     Comma-separated schemas tools may use (default: all).
+          --max-analysis-depth <n>     Foreign-key hop cap for explain_relationship (default: 50, range 1-50).
           --help, -h                   Show this help text.
 
         Environment fallbacks:
           EFCORE_MCP_ASSEMBLY          Fallback for --assembly.
           EFCORE_MCP_CONTEXT           Fallback for --context.
           EFCORE_MCP_CONNECTION        Fallback for --connection.
+          EFCORE_MCP_MAX_ROWS          Fallback for --max-rows.
+          EFCORE_MCP_MAX_QUERY_LENGTH  Fallback for --max-query-length.
+          EFCORE_MCP_ALLOWED_SCHEMAS   Fallback for --allowed-schemas.
+          EFCORE_MCP_MAX_ANALYSIS_DEPTH Fallback for --max-analysis-depth.
         """;
 
     /// <summary>
@@ -56,6 +70,7 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
         }
 
         string? assembly = null, context = null, connectionString = null;
+        string? maxRows = null, maxQueryLength = null, allowedSchemas = null, maxAnalysisDepth = null;
         var provider = "auto";
 
         for (var i = 0; i < args.Length; i++)
@@ -78,9 +93,26 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
                     provider = args[++i];
                     break;
 
+                case "--max-rows" when i + 1 < args.Length:
+                    maxRows = args[++i];
+                    break;
+
+                case "--max-query-length" when i + 1 < args.Length:
+                    maxQueryLength = args[++i];
+                    break;
+
+                case "--allowed-schemas" when i + 1 < args.Length:
+                    allowedSchemas = args[++i];
+                    break;
+
+                case "--max-analysis-depth" when i + 1 < args.Length:
+                    maxAnalysisDepth = args[++i];
+                    break;
+
                 default:
                     if (args[i].StartsWith('-') &&
-                        args[i] is not ("--assembly" or "-a" or "--context" or "-c" or "--connection" or "--provider"))
+                        args[i] is not ("--assembly" or "-a" or "--context" or "-c" or "--connection" or "--provider"
+                            or "--max-rows" or "--max-query-length" or "--allowed-schemas" or "--max-analysis-depth"))
                     {
                         throw new ArgumentException($"Unknown option '{args[i]}'. Use --help for usage information.");
                     }
@@ -92,6 +124,10 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
         assembly ??= Environment.GetEnvironmentVariable("EFCORE_MCP_ASSEMBLY");
         context ??= Environment.GetEnvironmentVariable("EFCORE_MCP_CONTEXT");
         connectionString ??= Environment.GetEnvironmentVariable("EFCORE_MCP_CONNECTION");
+        maxRows ??= NonEmptyEnvironmentVariable("EFCORE_MCP_MAX_ROWS");
+        maxQueryLength ??= NonEmptyEnvironmentVariable("EFCORE_MCP_MAX_QUERY_LENGTH");
+        allowedSchemas ??= NonEmptyEnvironmentVariable("EFCORE_MCP_ALLOWED_SCHEMAS");
+        maxAnalysisDepth ??= NonEmptyEnvironmentVariable("EFCORE_MCP_MAX_ANALYSIS_DEPTH");
 
         if (assembly is null)
         {
@@ -110,7 +146,54 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
             ContextTypeName = context,
             ConnectionString = connectionString,
             Provider = provider
-        });
+        })
+        {
+            Limits = ParseLimits(maxRows, maxQueryLength, allowedSchemas, maxAnalysisDepth)
+        };
+    }
+
+    /// <summary>
+    /// Builds and validates the runtime limits from their raw command-line or environment values.
+    /// </summary>
+    /// <param name="maxRows">Raw <c>--max-rows</c> value, or <see langword="null"/> for the default.</param>
+    /// <param name="maxQueryLength">Raw <c>--max-query-length</c> value, or <see langword="null"/> for the default.</param>
+    /// <param name="allowedSchemas">Raw comma-separated <c>--allowed-schemas</c> value, or <see langword="null"/> to allow all.</param>
+    /// <param name="maxAnalysisDepth">Raw <c>--max-analysis-depth</c> value, or <see langword="null"/> for the default.</param>
+    /// <returns>The validated runtime limits.</returns>
+    /// <exception cref="ArgumentException">Thrown when a value is not an integer, is out of range, or is an invalid schema name.</exception>
+    private static RuntimeLimitsOptions ParseLimits(string? maxRows, string? maxQueryLength, string? allowedSchemas, string? maxAnalysisDepth)
+    {
+        var limits = new RuntimeLimitsOptions
+        {
+            MaxRows = ParseInteger(maxRows, "--max-rows", RuntimeLimitsOptions.DefaultMaxRows),
+            MaxQueryLength = ParseInteger(maxQueryLength, "--max-query-length", RuntimeLimitsOptions.DefaultMaxQueryLength),
+            MaxAnalysisDepth = ParseInteger(maxAnalysisDepth, "--max-analysis-depth", RuntimeLimitsOptions.DefaultMaxAnalysisDepth),
+            AllowedSchemas = allowedSchemas?.Split(',').Select(schema => schema.Trim()).ToList()
+        };
+
+        limits.Validate();
+        return limits;
+    }
+
+    private static int ParseInteger(string? raw, string option, int defaultValue)
+    {
+        if (raw is null)
+        {
+            return defaultValue;
+        }
+
+        if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+        {
+            throw new ArgumentException($"{option} must be an integer. Got: '{raw}'.");
+        }
+
+        return value;
+    }
+
+    private static string? NonEmptyEnvironmentVariable(string name)
+    {
+        var value = Environment.GetEnvironmentVariable(name);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     /// <summary>

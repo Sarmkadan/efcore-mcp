@@ -10,6 +10,8 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
 builder.Services.AddSingleton(cli.Connection);
+builder.Services.AddSingleton(cli.Limits);
+builder.Services.AddSingleton<IRuntimeLimitGuard, RuntimeLimitGuard>();
 builder.Services.AddSingleton<IDbContextProvider, DbContextProvider>();
 builder.Services.AddSingleton<IModelIntrospector, ModelIntrospector>();
 builder.Services.AddSingleton<ISqlQueryExecutor, SqlQueryExecutor>();

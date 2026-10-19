@@ -9,7 +9,11 @@ namespace EfCoreMcp.Core.Services;
 /// </summary>
 public sealed class RelationshipAnalyzer : IRelationshipAnalyzer
 {
-    private const int MaxPathFindingDepth = 50;
+    /// <summary>
+    /// The deepest relationship search allowed, in foreign-key hops.
+    /// </summary>
+    public const int MaxPathFindingDepth = 50;
+
     private const int MaxPathsToExplore = 1000;
     private readonly IModelIntrospector introspector;
 
@@ -23,15 +27,20 @@ public sealed class RelationshipAnalyzer : IRelationshipAnalyzer
         this.introspector = introspector;
     }
 
-    public RelationshipPath ExplainRelationship(string fromEntity, string toEntity)
+    public RelationshipPath ExplainRelationship(string fromEntity, string toEntity) =>
+        ExplainRelationship(fromEntity, toEntity, MaxPathFindingDepth);
+
+    public RelationshipPath ExplainRelationship(string fromEntity, string toEntity, int maxHops)
     {
         ArgumentException.ThrowIfNullOrEmpty(fromEntity);
         ArgumentException.ThrowIfNullOrEmpty(toEntity);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxHops, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxHops, MaxPathFindingDepth);
 
         var model = introspector.DescribeModel();
         var from = Resolve(model, fromEntity);
         var to = Resolve(model, toEntity);
-        var hops = FindShortestPath(model, from.Name, to.Name);
+        var hops = FindShortestPath(model, from.Name, to.Name, maxHops);
         if (hops is null)
             return new RelationshipPath(from.Name, to.Name, false, [],
                 $"{from.Name} and {to.Name} are not connected by any chain of foreign keys.");
@@ -96,7 +105,7 @@ public sealed class RelationshipAnalyzer : IRelationshipAnalyzer
         return new DependencyOrder(order, deleteOrder, cyclic, detectedCycles);
     }
 
-    private static List<RelationshipHop>? FindShortestPath(ModelDescriptor model, string from, string to)
+    private static List<RelationshipHop>? FindShortestPath(ModelDescriptor model, string from, string to, int maxHops)
     {
         ArgumentException.ThrowIfNullOrEmpty(from);
         ArgumentException.ThrowIfNullOrEmpty(to);
@@ -132,7 +141,7 @@ public sealed class RelationshipAnalyzer : IRelationshipAnalyzer
         {
             var (current, depth) = queue.Dequeue();
 
-            if (depth >= MaxPathFindingDepth)
+            if (depth >= maxHops)
                 continue; // Prevent combinatorial blowup from deep paths
 
             foreach (var (neighbor, hop) in edges.GetValueOrDefault(current, []))

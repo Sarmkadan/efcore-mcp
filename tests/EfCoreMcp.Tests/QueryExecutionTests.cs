@@ -307,7 +307,7 @@ public class QueryExecutionTests
 
         // Act & Assert
         Assert.NotEmpty(codes);
-        Assert.Equal(9, codes.Length); // Actual count of QueryRejectionCode enum values
+        Assert.Equal(10, codes.Length); // Actual count of QueryRejectionCode enum values
 
         // Verify we can access each code
         Assert.Equal(QueryRejectionCode.EmptyQuery, codes[0]);
@@ -319,6 +319,7 @@ public class QueryExecutionTests
         Assert.Equal(QueryRejectionCode.WriteOperationInCte, codes[6]);
         Assert.Equal(QueryRejectionCode.TimeoutConstraint, codes[7]);
         Assert.Equal(QueryRejectionCode.LimitExceeded, codes[8]);
+        Assert.Equal(QueryRejectionCode.SchemaNotAllowed, codes[9]);
     }
 
     [Theory]

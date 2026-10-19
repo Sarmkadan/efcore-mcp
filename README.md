@@ -36,6 +36,10 @@ Both options start a process that waits for MCP messages on stdin. You normally 
 | `--context`, `-c <name>` | `EFCORE_MCP_CONTEXT` | `DbContext` type name. Required only when the assembly contains more than one context. |
 | `--connection <string>` | `EFCORE_MCP_CONNECTION` | Connection string. Overrides the connection configured in the context. |
 | `--provider <name>` | n/a | Accepted but currently has no effect. The provider comes from your `DbContext`. |
+| `--max-rows <n>` | `EFCORE_MCP_MAX_ROWS` | Maximum rows a query tool may return (default: 10000, range 1-10000). |
+| `--max-query-length <n>` | `EFCORE_MCP_MAX_QUERY_LENGTH` | Maximum length of a SQL statement in characters (default: 10000, range 1-1000000). |
+| `--allowed-schemas <list>` | `EFCORE_MCP_ALLOWED_SCHEMAS` | Comma-separated list of schemas that query and relationship tools may touch (default: all schemas allowed). |
+| `--max-analysis-depth <n>` | `EFCORE_MCP_MAX_ANALYSIS_DEPTH` | Maximum number of foreign-key hops explored by relationship analysis (default: 50, range 1-50). |
 
 ### Client configuration
 
@@ -163,10 +167,10 @@ The result is returned as a JSON text block. It is shown here pretty-printed. Ev
 
 | Tool | Parameters | Notes |
 | --- | --- | --- |
-| `query_sql` | `sql` (required), `maxRows` (default 100, max 10000), `timeoutSeconds` (default 30, max 300) | Runs a single `SELECT` or `WITH ... SELECT`. Other statements are rejected. |
-| `query_entity` | `entityName` (required), `maxRows` (default 100, max 10000), `skip`, `orderBy`, `orderDescending`, `filter`, `filterParameters`, `timeoutSeconds` | Returns scalar properties only. See the known issues for `filter`. |
-| `count_entity` | `entityName` (required) | Returns the row count. |
-| `explain_sql` | `sql` (required), `timeoutSeconds` | Returns an execution plan without running the query. |
+| `query_sql` | `sql` (required), `maxRows` (default 100, max limited by `--max-rows`), `timeoutSeconds` (default 30, max 300) | Runs a single `SELECT` or `WITH ... SELECT`. Other statements are rejected. The `maxRows` argument is capped by the server's `--max-rows` setting. The SQL length is limited by `--max-query-length`. Only tables in schemas allowed by `--allowed-schemas` may be accessed. |
+| `query_entity` | `entityName` (required), `maxRows` (default 100, max limited by `--max-rows`), `skip`, `orderBy`, `orderDescending`, `filter`, `filterParameters`, `timeoutSeconds` (default 30, max 300) | Returns scalar properties only. The `maxRows` argument is capped by the server's `--max-rows` setting. Only entities in schemas allowed by `--allowed-schemas` may be accessed. See the known issues for `filter`. |
+| `count_entity` | `entityName` (required) | Returns the row count. Only entities in schemas allowed by `--allowed-schemas` may be accessed. |
+| `explain_sql` | `sql` (required), `timeoutSeconds` (default 30, max 300) | Returns an execution plan without running the query. The SQL length is limited by `--max-query-length`. Only tables in schemas allowed by `--allowed-schemas` may be accessed. |
 
 The server also exposes model, migration, and analysis tools, such as `describe_model`, `describe_entity`, `migration_status`, and `validate_model`.
 
