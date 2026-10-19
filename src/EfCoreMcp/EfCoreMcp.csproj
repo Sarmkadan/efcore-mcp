@@ -14,7 +14,7 @@
     <Authors>Vladyslav Zaiets</Authors>
     <Company>Vladyslav Zaiets</Company>
     <Description>MCP server that exposes EF Core model introspection, guarded read-only queries and migration diffing over stdio.</Description>
-    <PackageTags>mcp;efcore;entity-framework;dotnet;database</PackageTags>
+    <PackageTags>efcore;mcp;entity-framework;model-context-protocol</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/Sarmkadan/efcore-mcp</RepositoryUrl>
