@@ -127,7 +127,8 @@ public sealed class DbContextProvider : IDbContextProvider
 
         private void Initialize()
         {
-            var assemblyPath = Path.GetFullPath(_options.AssemblyPath);
+            // Re-validate here, not only at startup: this is the point where the assembly's code runs.
+            var assemblyPath = AssemblyPathValidator.Resolve(_options.AssemblyPath, _options.AssemblyRoot);
             var assemblyDir = Path.GetDirectoryName(assemblyPath)!;
             var assemblyName = Path.GetFileName(assemblyPath);
 

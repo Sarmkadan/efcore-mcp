@@ -18,6 +18,11 @@ public sealed class ContextConnectionOptions : IEquatable<ContextConnectionOptio
 {
     public required string AssemblyPath { get; init; }
 
+    /// <summary>
+    /// Optional absolute directory that <see cref="AssemblyPath"/> must resolve into. <see langword="null"/> accepts any location.
+    /// </summary>
+    public string? AssemblyRoot { get; init; }
+
     public string? ContextTypeName { get; init; }
 
     public string? ConnectionString { get; init; }
@@ -38,6 +43,8 @@ public sealed class ContextConnectionOptions : IEquatable<ContextConnectionOptio
         sb.Append(nameof(ContextConnectionOptions));
         sb.Append(" { AssemblyPath = ");
         sb.Append(AssemblyPath);
+        sb.Append(", AssemblyRoot = ");
+        sb.Append(AssemblyRoot);
         sb.Append(", ContextTypeName = ");
         sb.Append(ContextTypeName);
         sb.Append(", Provider = ");
@@ -55,6 +62,7 @@ public sealed class ContextConnectionOptions : IEquatable<ContextConnectionOptio
         if (ReferenceEquals(this, other)) return true;
 
         return string.Equals(AssemblyPath, other.AssemblyPath, StringComparison.Ordinal) &&
+               string.Equals(AssemblyRoot, other.AssemblyRoot, StringComparison.Ordinal) &&
                string.Equals(ContextTypeName, other.ContextTypeName, StringComparison.Ordinal) &&
                string.Equals(ConnectionString, other.ConnectionString, StringComparison.Ordinal) &&
                string.Equals(Provider, other.Provider, StringComparison.Ordinal);
@@ -66,6 +74,7 @@ public sealed class ContextConnectionOptions : IEquatable<ContextConnectionOptio
     {
         return HashCode.Combine(
             AssemblyPath,
+            AssemblyRoot,
             ContextTypeName,
             ConnectionString,
             Provider);

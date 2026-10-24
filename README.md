@@ -32,7 +32,8 @@ Both options start a process that waits for MCP messages on stdin. You normally 
 
 | Option | Environment fallback | Description |
 | --- | --- | --- |
-| `--assembly`, `-a <path>` | `EFCORE_MCP_ASSEMBLY` | Path to the assembly that contains the `DbContext`. Required. |
+| `--assembly`, `-a <path>` | `EFCORE_MCP_ASSEMBLY` | Path to the assembly that contains the `DbContext`. Required. Must be a `.dll` or `.exe` path without `..` segments. |
+| `--assembly-root <dir>` | `EFCORE_MCP_ASSEMBLY_ROOT` | Directory the assembly must resolve into. When set, a path outside it is rejected at startup. Default: any location. |
 | `--context`, `-c <name>` | `EFCORE_MCP_CONTEXT` | `DbContext` type name. Required only when the assembly contains more than one context. |
 | `--connection <string>` | `EFCORE_MCP_CONNECTION` | Connection string. Overrides the connection configured in the context. |
 | `--provider <name>` | n/a | Accepted but currently has no effect. The provider comes from your `DbContext`. |
@@ -40,6 +41,8 @@ Both options start a process that waits for MCP messages on stdin. You normally 
 | `--max-query-length <n>` | `EFCORE_MCP_MAX_QUERY_LENGTH` | Maximum length of a SQL statement in characters (default: 10000, range 1-1000000). |
 | `--allowed-schemas <list>` | `EFCORE_MCP_ALLOWED_SCHEMAS` | Comma-separated list of schemas that query and relationship tools may touch (default: all schemas allowed). |
 | `--max-analysis-depth <n>` | `EFCORE_MCP_MAX_ANALYSIS_DEPTH` | Maximum number of foreign-key hops explored by relationship analysis (default: 50, range 1-50). |
+
+**Trust model.** The assembly path is an operator setting. Loading an assembly runs its code, so treat `--assembly` and `EFCORE_MCP_ASSEMBLY` like any other executable path. No MCP tool accepts a path, and clients cannot change which assembly is loaded. On a host where the server is reachable by less-trusted users or configuration sources, set `--assembly-root` to the directory that holds your build output so that the path cannot point elsewhere.
 
 ### Client configuration
 
