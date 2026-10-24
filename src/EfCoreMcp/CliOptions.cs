@@ -1,5 +1,6 @@
 using System.Globalization;
 using EfCoreMcp.Core.Domain;
+using EfCoreMcp.Core.Services;
 
 namespace EfCoreMcp;
 
@@ -37,6 +38,8 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
 
         Options:
           --assembly, -a <path-to-dll>  Path to the assembly containing the DbContext (required).
+                                        Trusted, operator-controlled value; MCP clients cannot change it.
+          --assembly-root <dir>         Directory the assembly must resolve into (default: any location).
           --context, -c <type-name>     DbContext type name.
           --connection <string>        Database connection string.
           --provider <provider>        Database provider (default: auto).
@@ -48,6 +51,7 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
 
         Environment fallbacks:
           EFCORE_MCP_ASSEMBLY          Fallback for --assembly.
+          EFCORE_MCP_ASSEMBLY_ROOT     Fallback for --assembly-root.
           EFCORE_MCP_CONTEXT           Fallback for --context.
           EFCORE_MCP_CONNECTION        Fallback for --connection.
           EFCORE_MCP_MAX_ROWS          Fallback for --max-rows.
@@ -61,7 +65,7 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
     /// </summary>
     /// <param name="args">Command-line arguments.</param>
     /// <returns>Parsed CLI options.</returns>
-    /// <exception cref="ArgumentException">Thrown when required options are missing.</exception>
+    /// <exception cref="ArgumentException">Thrown when required options are missing or a path is rejected.</exception>
     public static CliOptions Parse(string[] args)
     {
         if (args.Any(arg => arg is "--help" or "-h"))
@@ -69,7 +73,7 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
             throw new HelpRequestedException();
         }
 
-        string? assembly = null, context = null, connectionString = null;
+        string? assembly = null, assemblyRoot = null, context = null, connectionString = null;
         string? maxRows = null, maxQueryLength = null, allowedSchemas = null, maxAnalysisDepth = null;
         var provider = "auto";
 
@@ -79,6 +83,10 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
             {
                 case "--assembly" or "-a" when i + 1 < args.Length:
                     assembly = args[++i];
+                    break;
+
+                case "--assembly-root" when i + 1 < args.Length:
+                    assemblyRoot = args[++i];
                     break;
 
                 case "--context" or "-c" when i + 1 < args.Length:
@@ -111,7 +119,7 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
 
                 default:
                     if (args[i].StartsWith('-') &&
-                        args[i] is not ("--assembly" or "-a" or "--context" or "-c" or "--connection" or "--provider"
+                        args[i] is not ("--assembly" or "-a" or "--assembly-root" or "--context" or "-c" or "--connection" or "--provider"
                             or "--max-rows" or "--max-query-length" or "--allowed-schemas" or "--max-analysis-depth"))
                     {
                         throw new ArgumentException($"Unknown option '{args[i]}'. Use --help for usage information.");
@@ -122,6 +130,7 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
         }
 
         assembly ??= Environment.GetEnvironmentVariable("EFCORE_MCP_ASSEMBLY");
+        assemblyRoot ??= NonEmptyEnvironmentVariable("EFCORE_MCP_ASSEMBLY_ROOT");
         context ??= Environment.GetEnvironmentVariable("EFCORE_MCP_CONTEXT");
         connectionString ??= Environment.GetEnvironmentVariable("EFCORE_MCP_CONNECTION");
         maxRows ??= NonEmptyEnvironmentVariable("EFCORE_MCP_MAX_ROWS");
@@ -140,9 +149,15 @@ public sealed record CliOptions(ContextConnectionOptions Connection)
             ValidateConnectionString(connectionString);
         }
 
+        // Validate the path now so a bad path stops the server before it accepts requests.
+        // The provider resolves it again when it loads the assembly, so the raw value is kept here.
+        var root = assemblyRoot is null ? null : AssemblyPathValidator.ResolveRoot(assemblyRoot);
+        _ = AssemblyPathValidator.Resolve(assembly, root);
+
         return new CliOptions(new ContextConnectionOptions
         {
             AssemblyPath = assembly,
+            AssemblyRoot = root,
             ContextTypeName = context,
             ConnectionString = connectionString,
             Provider = provider
