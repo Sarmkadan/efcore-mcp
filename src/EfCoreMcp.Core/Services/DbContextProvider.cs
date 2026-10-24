@@ -161,8 +161,9 @@ public sealed class DbContextProvider : IDbContextProvider
 
         private static string CreateTempAssemblyCopy(string sourcePath)
         {
-            var sourceFileName = Path.GetFileNameWithoutExtension(sourcePath);
-            var tempDir = Path.Combine(Path.GetTempPath(), "efcore-mcp-assemblies", sourceFileName);
+            // Each copy gets its own directory: a DLL already mapped by a loaded context must never be
+            // overwritten in place, and concurrent providers for the same assembly must not share a file.
+            var tempDir = Path.Combine(Path.GetTempPath(), "efcore-mcp-assemblies", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
 
             var tempPath = Path.Combine(tempDir, Path.GetFileName(sourcePath));
