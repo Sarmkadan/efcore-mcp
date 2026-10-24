@@ -1,46 +1,39 @@
 using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
+using EfCoreMcp.Core.Services.Rules;
 using static EfCoreMcp.Core.Services.ModelAnalyzerConstants;
 
 namespace EfCoreMcp.Core.Services;
 
 /// <summary>
 /// Analyzes an EF Core model using an <see cref="IModelIntrospector"/> to produce validation reports
-/// and index suggestions. The analyzer inspects each entity for common modeling issues and
-/// generates findings that can be used to improve the model's design and performance.
+/// and index suggestions. Each validation rule in <see cref="ModelRuleCatalog"/> inspects the model and
+/// reports findings tagged with a stable rule ID that can be suppressed.
 /// </summary>
 /// <param name="introspector">The introspector that provides a description of the EF Core model.</param>
 public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnalyzer
 {
     /// <summary>
-    /// Validates the EF Core model, checking for a variety of potential problems such as missing primary keys,
-    /// unbounded string columns, missing precision on decimal properties, inappropriate cascade delete settings,
-    /// missing foreign‑key indexes, and other issues that can affect tracking, migrations, or runtime behavior.
+    /// Validates the EF Core model by running every rule in <see cref="ModelRuleCatalog"/>, except those suppressed.
     /// </summary>
+    /// <param name="suppressedRuleIds">Rule IDs (for example <c>EFMCP012</c>) whose findings should be omitted; matching is case-insensitive.</param>
     /// <returns>
     /// A <see cref="ModelValidationReport"/> that contains the total number of entities examined and a
-    /// list of <see cref="ModelFinding"/> objects ordered by severity and entity name.
+    /// list of <see cref="ModelFinding"/> objects ordered by severity, entity name and rule ID.
     /// </returns>
-    public ModelValidationReport ValidateModel()
+    /// <exception cref="ArgumentException">Thrown when a suppressed rule ID is empty or does not name a known rule.</exception>
+    public ModelValidationReport ValidateModel(IReadOnlyCollection<string>? suppressedRuleIds = null)
     {
+        var suppressed = ModelRuleCatalog.ResolveSuppressions(suppressedRuleIds);
         var model = introspector.DescribeModel();
-        var findings = new List<ModelFinding>();
-        foreach (var entity in model.Entities)
-        {
-            CheckPrimaryKey(entity, findings);
-            CheckStringProperties(entity, findings);
-            CheckDecimalProperties(entity, findings);
-            CheckForeignKeys(entity, findings);
-            CheckNavigations(entity, findings);
-            CheckShadowForeignKeys(entity, findings);
-        }
-        CheckMultipleCascadePaths(model, findings);
-        return new ModelValidationReport(
-            model.Entities.Count,
-            findings
-                .OrderBy(f => SeverityRank(f.Severity))
-                .ThenBy(f => f.Entity, StringComparer.Ordinal)
-                .ToList());
+        var findings = ModelRuleCatalog.Rules
+            .Where(rule => !suppressed.Contains(rule.Descriptor.Id))
+            .SelectMany(rule => rule.Evaluate(model))
+            .OrderBy(f => SeverityRank(f.Severity))
+            .ThenBy(f => f.Entity, StringComparer.Ordinal)
+            .ThenBy(f => f.Code, StringComparer.Ordinal)
+            .ToList();
+        return new ModelValidationReport(model.Entities.Count, findings);
     }
 
     /// <summary>
@@ -58,7 +51,7 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
         {
             foreach (var fk in entity.ForeignKeys)
             {
-                if (IsCoveredByIndexOrKey(entity, fk.Properties))
+                if (KeyCoverage.IsCoveredByIndexOrKey(entity, fk.Properties))
                     continue;
                 suggestions.Add(new IndexSuggestion(
                     entity.Name,
@@ -69,107 +62,6 @@ public sealed class ModelAnalyzer(IModelIntrospector introspector) : IModelAnaly
         }
         return suggestions;
     }
-
-    private static void CheckPrimaryKey(EntityDescriptor entity, List<ModelFinding> findings)
-    {
-        if (entity.PrimaryKey is null && !entity.IsOwned)
-            findings.Add(new ModelFinding(
-                SeverityWarning, CodeEfMcp001, entity.Name, null,
-                "Entity has no primary key (keyless entity type).",
-                "Keyless entities cannot be tracked, updated or used as principals. If this is intentional (view/raw-SQL projection), ignore; otherwise add HasKey()."));
-    }
-
-    private static void CheckStringProperties(EntityDescriptor entity, List<ModelFinding> findings)
-    {
-        foreach (var p in entity.Properties)
-        {
-            if (p.ClrType is ClrTypeString && p.MaxLength is null && !p.IsPrimaryKey && !p.IsForeignKey)
-                findings.Add(new ModelFinding(
-                    SeverityInfo, CodeEfMcp002, entity.Name, p.Name,
-                    $"String property '{p.Name}' has no max length; most providers map it to an unbounded column (nvarchar(max)/text).",
-                    "Set HasMaxLength(n) where a bound is known - unbounded columns block index creation on some providers and hide data-quality issues."));
-        }
-    }
-
-    private static void CheckDecimalProperties(EntityDescriptor entity, List<ModelFinding> findings)
-    {
-        foreach (var p in entity.Properties)
-        {
-            if (p.ClrType is ClrTypeDecimal or ClrTypeDecimalNullable && p.Precision is null)
-                findings.Add(new ModelFinding(
-                    SeverityWarning, CodeEfMcp003, entity.Name, p.Name,
-                    $"Decimal property '{p.Name}' has no explicit precision/column type; the provider default may silently truncate values.",
-                    "Configure HasPrecision(p, s) or HasColumnType(\"decimal(p,s)\") to make rounding behaviour explicit."));
-        }
-    }
-
-    private static void CheckForeignKeys(EntityDescriptor entity, List<ModelFinding> findings)
-    {
-        foreach (var fk in entity.ForeignKeys)
-        {
-            if (!fk.IsRequired && fk.DeleteBehavior == DeleteBehaviorCascade)
-                findings.Add(new ModelFinding(
-                    SeverityWarning, CodeEfMcp004, entity.Name, string.Join(", ", fk.Properties),
-                    $"Optional relationship to {fk.PrincipalEntity} is configured with cascade delete.",
-                    "Deleting the principal will delete dependents that could have survived with a NULL FK. Use DeleteBehavior.SetNull or ClientSetNull unless deletion is intended."));
-            if (!IsCoveredByIndexOrKey(entity, fk.Properties))
-                findings.Add(new ModelFinding(
-                    SeverityInfo, CodeEfMcp005, entity.Name, string.Join(", ", fk.Properties),
-                    $"Foreign key to {fk.PrincipalEntity} ({string.Join(", ", fk.Properties)}) is not covered by any index.",
-                    "EF Core creates FK indexes by convention; a missing one means it was removed or the FK is composite with a reordered index. Add HasIndex over the FK columns."));
-        }
-    }
-
-    private static void CheckNavigations(EntityDescriptor entity, List<ModelFinding> findings)
-    {
-        foreach (var nav in entity.Navigations)
-        {
-            if (nav.IsCollection && nav.InverseName is null)
-                findings.Add(new ModelFinding(
-                    SeverityInfo, CodeEfMcp006, entity.Name, nav.Name,
-                    $"Collection navigation '{nav.Name}' to {nav.TargetEntity} has no inverse reference navigation.",
-                    "Without an inverse, loading dependents and fixing up the relationship requires the FK value; adding the reference navigation makes Include() chains and change tracking clearer."));
-        }
-    }
-
-    private static void CheckShadowForeignKeys(EntityDescriptor entity, List<ModelFinding> findings)
-    {
-        foreach (var p in entity.Properties)
-        {
-            if (p.IsShadow && p.IsForeignKey)
-                findings.Add(new ModelFinding(
-                    SeverityInfo, CodeEfMcp007, entity.Name, p.Name,
-                    $"Foreign key '{p.Name}' is a shadow property - the relationship is navigation-only.",
-                    "Shadow FKs work but cannot be set without loading the principal. Map an explicit FK property to allow setting the relationship by id."));
-        }
-    }
-
-    private static void CheckMultipleCascadePaths(ModelDescriptor model, List<ModelFinding> findings)
-    {
-        foreach (var entity in model.Entities)
-        {
-            var cascadePrincipals = entity.ForeignKeys
-                .Where(fk => fk.DeleteBehavior == DeleteBehaviorCascade)
-                .Select(fk => fk.PrincipalEntity)
-                .Distinct()
-                .ToList();
-            if (cascadePrincipals.Count > 1)
-                findings.Add(new ModelFinding(
-                    SeverityWarning, CodeEfMcp008, entity.Name, null,
-                    $"Entity is a cascade-delete target from multiple principals: {string.Join(", ", cascadePrincipals)}.",
-                    "SQL Server rejects schemas with multiple cascade paths onto one table ('may cause cycles or multiple cascade paths'). Set one side to Restrict/NoAction and handle deletion in code."));
-        }
-    }
-
-    private static bool IsCoveredByIndexOrKey(EntityDescriptor entity, IReadOnlyList<string> fkProperties)
-    {
-        return entity.Indexes.Any(ix => StartsWith(ix.Properties, fkProperties))
-            || (entity.PrimaryKey is { } pk && StartsWith(pk.Properties, fkProperties))
-            || entity.AlternateKeys.Any(k => StartsWith(k.Properties, fkProperties));
-    }
-
-    private static bool StartsWith(IReadOnlyList<string> haystack, IReadOnlyList<string> prefix) =>
-        haystack.Count >= prefix.Count && prefix.SequenceEqual(haystack.Take(prefix.Count));
 
     private static int SeverityRank(string severity) => severity switch
     {

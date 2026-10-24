@@ -8,7 +8,7 @@ namespace EfCoreMcp.Tools;
 
 public interface IAnalysisTools
 {
-    ModelValidationReport ValidateModel();
+    ModelValidationReport ValidateModel(string[]? suppress = null);
     IReadOnlyList<IndexSuggestion> SuggestIndexes();
     RelationshipPath ExplainRelationship(string fromEntity, string toEntity, int? maxHops = null);
     DependencyOrder DependencyOrder();

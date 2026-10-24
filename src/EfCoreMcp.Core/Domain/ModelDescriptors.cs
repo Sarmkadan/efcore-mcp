@@ -17,7 +17,10 @@ public sealed record EntityDescriptor(
     IReadOnlyList<KeyDescriptor> AlternateKeys,
     IReadOnlyList<ForeignKeyDescriptor> ForeignKeys,
     IReadOnlyList<NavigationDescriptor> Navigations,
-    IReadOnlyList<IndexDescriptor> Indexes);
+    IReadOnlyList<IndexDescriptor> Indexes,
+    string? BaseEntity = null,
+    string? MappingStrategy = null,
+    string? DiscriminatorProperty = null);
 
 public sealed record PropertyDescriptor(
     string Name,
@@ -55,7 +58,8 @@ public sealed record NavigationDescriptor(
     string TargetEntity,
     bool IsCollection,
     bool IsOnDependent,
-    string? InverseName);
+    string? InverseName,
+    bool? IsClrNullable = null);
 
 public sealed record IndexDescriptor(
     string? Name,
