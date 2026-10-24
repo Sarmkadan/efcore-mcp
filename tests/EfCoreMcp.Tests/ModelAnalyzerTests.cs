@@ -76,7 +76,7 @@ public class Store : IEquatable<Store>
         var hash = new HashCode();
         hash.Add(Id);
         hash.Add(Name);
-        hash.Add(Sales?.Count ?? 0);
+        hash.Add(Sales.Count);
         foreach (var sale in Sales)
         {
             hash.Add(sale.Id);
