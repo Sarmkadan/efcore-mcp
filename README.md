@@ -513,3 +513,7 @@ public static class StoreDemo
 ```
 
 The example demonstrates creating a `Store`, adding related `Sale` objects, and using the `ModelAnalyzerTests` helper to access the in‑memory `DbContext`, retrieve model metadata, list entity names, and safely dispose of resources. All members used (`Id`, `Name`, `Sales`, `Amount`, `StoreId`, `Store`, `CustomerId`, `Customer`, `Notes`, `GetContext`, `GetContextInfo`, `Dispose`, `DescribeModel`, `DescribeEntity`, `ListEntityNames`, `EntityNotFoundMessage`, `ModelAnalyzerTests`) are part of the public API.
+
+## License
+
+Released under the [MIT License](LICENSE). Copyright (c) 2026 Vladyslav Zaiets.
