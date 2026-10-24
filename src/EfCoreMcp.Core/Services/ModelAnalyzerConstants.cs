@@ -16,9 +16,20 @@ internal static class ModelAnalyzerConstants
     public const string CodeEfMcp006 = "EFMCP006";
     public const string CodeEfMcp007 = "EFMCP007";
     public const string CodeEfMcp008 = "EFMCP008";
+    public const string CodeEfMcp009 = "EFMCP009";
+    public const string CodeEfMcp010 = "EFMCP010";
+    public const string CodeEfMcp011 = "EFMCP011";
+    public const string CodeEfMcp012 = "EFMCP012";
+    public const string CodeEfMcp013 = "EFMCP013";
 
     // Delete behavior
     public const string DeleteBehaviorCascade = "Cascade";
+
+    // Cascade fan-out: distinct dependent entity types reached through database cascades before EFMCP010 fires
+    public const int CascadeFanOutThreshold = 3;
+
+    // Inheritance mapping strategies (as reported by EF Core)
+    public const string MappingStrategyTph = "TPH";
 
     // Type names
     public const string ClrTypeString = "String";

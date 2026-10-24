@@ -14,12 +14,15 @@ public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer
     /// <summary>
     /// Scans the EF Core model for common pitfalls.
     /// </summary>
+    /// <param name="suppress">Rule IDs whose findings should be omitted (for example <c>EFMCP012</c>); matching is case-insensitive.</param>
     /// <returns>A report containing the results of the model validation.</returns>
-    [McpServerTool(Name = "validate_model"), Description("Scan the EF Core model for common pitfalls: keyless entities, unbounded strings, decimals without precision, unindexed foreign keys, optional-cascade deletes, multiple cascade paths, navigation-only relationships.")]
-    public ModelValidationReport ValidateModel()
+    /// <exception cref="ArgumentException">Thrown when a suppressed rule ID is empty or does not name a known rule.</exception>
+    [McpServerTool(Name = "validate_model"), Description("Scan the EF Core model for common pitfalls. Every finding has a stable rule ID (EFMCP001-EFMCP013) that can be listed in 'suppress' to silence it: keyless entities, unbounded strings (including in keys and indexes), decimals without precision, unindexed foreign keys, optional-cascade deletes, multiple and wide cascade paths, navigation/FK nullability mismatches, missing concurrency tokens, unindexed TPH discriminators, shadow foreign keys.")]
+    public ModelValidationReport ValidateModel(
+        [Description("Rule IDs to suppress, for example [\"EFMCP012\"] (optional)")] string[]? suppress = null)
     {
         ArgumentNullException.ThrowIfNull(analyzer);
-        return analyzer.ValidateModel();
+        return analyzer.ValidateModel(suppress);
     }
 
     /// <summary>

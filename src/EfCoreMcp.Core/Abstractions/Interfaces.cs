@@ -53,7 +53,13 @@ public interface IMigrationInspector
 
 public interface IModelAnalyzer
 {
-    ModelValidationReport ValidateModel();
+    /// <summary>
+    /// Validates the model against every rule, omitting findings from the suppressed rules.
+    /// </summary>
+    /// <param name="suppressedRuleIds">Rule IDs to omit; <see langword="null"/> suppresses nothing.</param>
+    /// <returns>The validation report.</returns>
+    /// <exception cref="ArgumentException">Thrown when a suppressed rule ID is empty or unknown.</exception>
+    ModelValidationReport ValidateModel(IReadOnlyCollection<string>? suppressedRuleIds = null);
     IReadOnlyList<IndexSuggestion> SuggestIndexes();
 }
 

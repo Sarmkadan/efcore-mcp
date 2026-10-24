@@ -1,3 +1,4 @@
+using System.Reflection;
 using EfCoreMcp.Core.Abstractions;
 using EfCoreMcp.Core.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -147,7 +148,10 @@ public sealed class ModelIntrospector : IModelIntrospector
             entity.GetKeys().Where(k => !k.IsPrimaryKey()).Select(Describe).ToList(),
             entity.GetForeignKeys().Select(Describe).ToList(),
             entity.GetNavigations().Select(Describe).ToList(),
-            entity.GetIndexes().Select(Describe).ToList());
+            entity.GetIndexes().Select(Describe).ToList(),
+            entity.BaseType?.ShortName(),
+            entity.GetMappingStrategy(),
+            entity.GetDiscriminatorPropertyName());
     }
 
     private static PropertyDescriptor Describe(IProperty property, IKey? pk) => new(
@@ -186,7 +190,21 @@ public sealed class ModelIntrospector : IModelIntrospector
         nav.TargetEntityType.ShortName(),
         nav.IsCollection,
         nav.IsOnDependent,
-        nav.Inverse?.Name);
+        nav.Inverse?.Name,
+        IsClrNullable(nav.PropertyInfo));
+
+    // Reads the C# nullable-reference annotation of the navigation property; null when the annotation is unknown.
+    private static bool? IsClrNullable(PropertyInfo? property)
+    {
+        if (property is null)
+            return null;
+        return new NullabilityInfoContext().Create(property).WriteState switch
+        {
+            NullabilityState.NotNull => false,
+            NullabilityState.Nullable => true,
+            _ => null
+        };
+    }
 
     private static IndexDescriptor Describe(IIndex index) => new(
         index.GetDatabaseName(),
