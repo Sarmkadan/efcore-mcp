@@ -66,6 +66,7 @@ public class DbContextProviderTests
     public void GetContext_NullOptions_ThrowsArgumentNullException()
     {
         // Act and Assert
-        Assert.Throws<ArgumentNullException>(() => new DbContextProvider(null));
+        // Null-forgiving operator: the test exercises the runtime null guard, so the compile-time nullability warning is intentional.
+        Assert.Throws<ArgumentNullException>(() => new DbContextProvider(null!));
     }
 }

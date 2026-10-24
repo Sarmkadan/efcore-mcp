@@ -411,7 +411,8 @@ public class QueryExecutionTests
         // Act & Assert
         Assert.Equal(result, result);
         Assert.True(result.Equals(result));
-        Assert.True(result == result);
+        var same = result;
+        Assert.True(result == same);
     }
 
     [Fact]
