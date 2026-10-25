@@ -11,7 +11,7 @@ public sealed record QueryLimits(int MaxRows = 100, int TimeoutSeconds = 30);
 /// <summary>
 /// SQL query request with explicit row limits and timeout constraints.
 /// </summary>
-public sealed record SqlQueryRequest
+public sealed record SqlQueryRequest : IEquatable<SqlQueryRequest>
 {
     /// <summary>
     /// Gets the SQL query to execute.
@@ -36,6 +36,27 @@ public sealed record SqlQueryRequest
         Sql = sql;
         Limits = limits ?? new QueryLimits();
     }
+
+    /// <summary>
+    /// Determines whether the specified <see cref="SqlQueryRequest"/> has the same SQL text and limits as this instance.
+    /// </summary>
+    /// <param name="other">The request to compare with.</param>
+    /// <returns><c>true</c> if both requests are equal; otherwise <c>false</c>.</returns>
+    public bool Equals(SqlQueryRequest? other)
+    {
+        if (other is null)
+            return false;
+        if (ReferenceEquals(this, other))
+            return true;
+
+        return Sql == other.Sql && Limits == other.Limits;
+    }
+
+    /// <summary>
+    /// Returns a hash code based on the SQL text and limits.
+    /// </summary>
+    /// <returns>A hash code consistent with <see cref="Equals(SqlQueryRequest?)"/>.</returns>
+    public override int GetHashCode() => HashCode.Combine(Sql, Limits);
 }
 
 /// <summary>
