@@ -9,8 +9,55 @@ namespace EfCoreMcp.Tools;
 /// Provides tools for analyzing the EF Core model.
 /// </summary>
 [McpServerToolType]
-public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer relationships, IRuntimeLimitGuard guard) : IAnalysisTools
+public sealed class AnalysisTools(IModelAnalyzer analyzer, IRelationshipAnalyzer relationships, IRuntimeLimitGuard guard) : IAnalysisTools, IEquatable<AnalysisTools>
 {
+    private IModelAnalyzer Analyzer => analyzer;
+
+    private IRelationshipAnalyzer Relationships => relationships;
+
+    private IRuntimeLimitGuard Guard => guard;
+
+    /// <summary>
+    /// Determines whether the specified <see cref="AnalysisTools"/> has the same dependencies as this instance.
+    /// </summary>
+    /// <param name="other">The instance to compare with.</param>
+    /// <returns><see langword="true"/> if both instances wrap the same analyzer, relationship analyzer and guard; otherwise <see langword="false"/>.</returns>
+    public bool Equals(AnalysisTools? other)
+    {
+        return other is not null
+            && Equals(Analyzer, other.Analyzer)
+            && Equals(Relationships, other.Relationships)
+            && Equals(Guard, other.Guard);
+    }
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as AnalysisTools);
+    }
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Analyzer, Relationships, Guard);
+    }
+
+    /// <summary>
+    /// Determines whether two <see cref="AnalysisTools"/> instances are equal.
+    /// </summary>
+    public static bool operator ==(AnalysisTools? left, AnalysisTools? right)
+    {
+        return left is null ? right is null : left.Equals(right);
+    }
+
+    /// <summary>
+    /// Determines whether two <see cref="AnalysisTools"/> instances are not equal.
+    /// </summary>
+    public static bool operator !=(AnalysisTools? left, AnalysisTools? right)
+    {
+        return !(left == right);
+    }
+
     /// <summary>
     /// Scans the EF Core model for common pitfalls.
     /// </summary>
